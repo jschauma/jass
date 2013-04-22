@@ -116,3 +116,7 @@ Who wrote this tool?
 --------------------
 jass(1) was originally written by Jan Schaumann (jschauma@netmeister.org) in
 April 2013.
+
+You can read more about it here:
+http://www.netmeister.org/blog/sharing-secrets-using-ssh-keys.html
+http://www.netmeister.org/blog/jass.html
