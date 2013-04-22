@@ -52,7 +52,7 @@ DETAILS
      username in LDAP.
 
      The output from jass consists of several uuencode(1)ed files.  The first
-     is the encrypted message, the following files the session key encrypted
+     is the encrypted message, the following files are the session key encrypted
      for each of the public keys.  jass will properly extract, decode and use
      these when the -d flag is specified, though it should be noted that the
      decrypted session key briefly lives on the disk in a temporary directory.
