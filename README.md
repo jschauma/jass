@@ -67,8 +67,8 @@ Encrypting data
 To encrypt the file service.yml for the local user jschauma and send it
 via email:
 
-$ jass -u jschauma <service.yml | \
-        mail -s "Please do the needful!" jschauma
+    $ jass -u jschauma <service.yml | \
+            mail -s "Please do the needful!" jschauma
 
 Please see the manual page for details and other examples.
 
@@ -80,7 +80,7 @@ question. This means that this should not happen on a shared box but
 instead is likely to occur on your desktop, laptop or other private
 system:
 
-jass -d -k ~/.ssh/privkey <secret
+    jass -d -k ~/.ssh/privkey <secret
 
 FAQ
 ===
@@ -89,7 +89,7 @@ Why does jass(1) say "Unable to convert ssh key to PKCS8 format."?
 ------------------------------------------------------------------
 The command that failed here was:
 
-ssh-keygen -P '' -f "${pubkey}" -e -m PKCS8
+    ssh-keygen -P '' -f "${pubkey}" -e -m PKCS8
 
 Most likely your version of ssh-keygen(1) does not support conversion to
 PKCS8.  This capability was added in OpenSSH 5.6 -- if your version of
