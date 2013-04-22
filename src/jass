@@ -1,0 +1,423 @@
+#! /bin/sh
+#
+# Copyright (c) 2013 Twitter, Inc.
+#
+# Originally written by Jan Schaumann <jschauma@netmeister.org> in April 2013.
+#
+# This script allows you to easily share secrets with other users in your
+# organization by way of ssh pubkeys.
+
+# Set these two variables to match your use of LDAP for ssh keys.
+#LDAPFIELD="SSHPubkey"
+#LDAPSEARCH="ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com"
+
+### You should not have to edit anything below this line.
+
+set -e
+
+###
+### Globals
+###
+
+umask 077
+
+PROGNAME="${0##*/}"
+ACTION="encrypt"
+FILE="/dev/stdin"
+KEYFILE=""
+RECIPIENTS=""
+UNAME="$(uname -s)"
+BASE64="base64"
+
+TDIR="$(mktemp -d "${TMPDIR:-/tmp}/jass.XXXX")"
+LDAP_KEYFILE="${TDIR}/ldap"
+KEYDIR="${TDIR}/pubkeys"
+PEMDIR="${TDIR}/pems"
+SESSION_KEY="${TDIR}/secret"
+
+VERBOSITY=0
+
+###
+### Functions
+###
+
+cleanup() {
+	rm -fr "${TDIR}"
+}
+
+convertKeyFiles() {
+	local pubkey
+	local pemfile
+	local success=0
+
+	verbose "Converting ssh pubkeys into PKCS8 format..." 2
+
+	for pubkey in "${KEYDIR}"/*; do
+		# Keys may contain options in the beginning, so nuke the first
+		# option.
+		<"${pubkey}" awk '{ if (NF > 3) { $1=""; }; print }' >"${pubkey}.tmp" && \
+			mv "${pubkey}.tmp" "${pubkey}"
+
+		pemfile=$(basename ${pubkey})
+		ssh-keygen -P '' -f "${pubkey}" -e -m PKCS8 > "${PEMDIR}/${pemfile}" 2>/dev/null ||	\
+			verbose "Unable to convert ssh key '$(basename ${pubkey})' to PKCS8 format."
+		if [ -s "${PEMDIR}/${pemfile}" ]; then
+			success=1
+		fi
+	done
+
+	if [ ${success} -eq 0 ]; then
+		echo "No valid PKCS8 file could be generated." >&2
+		exit 1
+	fi
+}
+
+# split the single file containing all pubkeys into per-pubkey files
+createKeyFiles() {
+	local readonly keyfile="${TDIR}/keyfile"
+	local found fp type
+
+	found=0
+
+	verbose "Creating per-pubkey files..." 3
+	(
+		cd "${KEYDIR}"
+		grep -v "^#" "${keyfile}" | grep . | sort -u | split -a 6 -l 1 - .key-
+	)
+
+	for k in "${KEYDIR}"/.key-*; do
+		type=$(ssh-keygen -e -f ${k} | sed -n -e 's/Comment:.*bit \(.*\),.*/\1/p')
+		if [ x"${type}" != x"RSA" ]; then
+			verbose "Key type of type '${type}' not supported. Skipping." 4
+			continue
+		fi
+
+		fp=$(ssh-keygen -l -f ${k} | awk '{print $2}')
+		# ssh-keygen does not yield errors to stderr; if
+		# the input is not a valid key, it will print
+		# "mumble is not a public key" instead.
+		if [ ! -s "${fp}" -a x"${fp}" = x"is" ]; then
+			verbose "Skipping invalid 'pubkey'..." 4
+			verbose "$(cat ${k})" 5
+			continue
+		fi
+
+		found=1
+		mv ${k} "${KEYDIR}"/${fp}
+	done
+
+	if [ ${found} -eq 0 ]; then
+		echo "No supported key found." >&2
+		exit 1
+	fi
+}
+
+decrypt() {
+	local output="/dev/stdout"
+	local outfile
+	local skey
+	local f
+	local found=0
+
+	local readonly msgdir="${TDIR}/message"
+	local readonly localfp=$(ssh-keygen -l -f "${KEYFILE}" | awk '{print $2}')
+
+	verbose "Decrypting..."
+
+	verbose "Decoding data..." 2
+	verbose "Splitting input..." 3
+	( cd "${TDIR}" && awk '/^begin-base64 / { f="data"i++; } { print > f;}' "${FILE}" )
+
+	verbose "Uudecoding ecnrypted message..." 3
+	( mkdir -p "${msgdir}" && cd "${msgdir}" && uudecode ../data0 )
+	outfile=$(basename "${msgdir}"/*)
+
+	verbose "Uudecoding all session keys..." 3
+	if [ ! -s "${TDIR}"/data1 ]; then
+		echo "No encoded session keys found." >&2
+		exit 1
+	fi
+	( cd "${KEYDIR}" && uudecode ../data[1-9]* )
+
+
+	verbose "Identifying matching session key..." 3
+
+	for f in "${KEYDIR}"/*; do
+		skey=$(basename "${f}")
+
+		if [ x"${skey}" = x"${localfp}" ]; then
+			verbose "Using ${skey}..." 4
+			found=1
+			break
+		fi
+	done
+
+	if [ ${found} -eq 0 ]; then
+		echo "Data was not encrypted for the key in ${KEYFILE}." >&2
+		exit 1
+	fi
+
+	verbose "Decrypting session key..." 2
+	openssl rsautl -inkey "${KEYFILE}" -decrypt -in "${KEYDIR}/${skey}" -out "${TDIR}/skey"
+
+	if [ x"${FILE}" != x"/dev/stdin" ]; then
+		output="${outfile}"
+	fi
+	verbose "Decrypting message using session key..." 2
+	openssl enc -d -aes-256-cbc -pass "file:${TDIR}/skey"	\
+		-in "${msgdir}/${outfile}" -out "${output}"
+}
+
+encrypt() {
+	local outfile="message"
+	local fp
+	local pemfile
+
+	verbose "Encrypting..."
+
+	if [ x"${FILE}" != x"/dev/stdin" ]; then
+		if [ ! -r "${FILE}" ]; then
+			echo "Unable to read '${FILE}'." >&2
+			exit 1
+		fi
+		outfile=$(basename "${FILE}")
+	fi
+
+	getPubkeys
+	createKeyFiles
+	convertKeyFiles
+	generateSessionKey
+
+	verbose "Encrypting data with session key..." 2
+	openssl enc -aes-256-cbc -salt -in "${FILE}" -pass "file:${SESSION_KEY}" | \
+		uuencode -m "${outfile}"
+
+	verbose "Encrypting session key with pubkeys..." 2
+	for pemfile in "${PEMDIR}"/*; do
+		fp=$(basename "${pemfile}")
+		verbose "Encrypting session key with pubkey ${fp}..." 3
+		openssl rsautl -pubin -inkey "${pemfile}" -encrypt -pkcs -in "${SESSION_KEY}" |	\
+			uuencode -m ${fp}
+	done
+}
+
+generateSessionKey() {
+	verbose "Generating a session key..." 2
+
+	openssl rand 32 -base64 -out "${SESSION_KEY}" 2>/dev/null
+}
+
+# After this completes, all available pubkeys will be stored under the
+# ${KEYDIR}, one key per file, each named by the fingerprint of the
+# pubkey.
+getPubkeys() {
+	verbose "Identifying/retrieving ssh pubkeys..." 2
+
+	local found=0
+	local etcfile tildefile
+	local readonly keyfile="${TDIR}/keyfile"
+
+	if [ -n "${RECIPIENTS}" ]; then
+		for r in ${RECIPIENTS}; do
+			# Tilde expansion happens before variable expansion, so
+			# we need to eval echo here.
+			tildefile=$(eval echo ~${r}/.ssh/authorized_keys)
+			etcfile="/etc/ssh/authorized_keys/${r}"
+			for f in "${tildefile}" "${etcfile}"; do
+				verbose "Trying '${f}'..." 3
+				if [ -r "${f}" ]; then
+					cat "${f}" >> "${keyfile}"
+					found=1
+				fi
+			done
+
+			if [ ${found} -eq 0 ]; then
+				getPubkeysFromLDAP "${r}"
+				if [ -s "${LDAP_KEYFILE}" ]; then
+					cat "${LDAP_KEYFILE}" >> "${keyfile}"
+				fi
+			fi
+		done
+	fi
+
+	if [ -n "${KEYFILE}" ]; then
+		cp "${KEYFILE}" "${keyfile}"
+	fi
+
+	if [ ! -s "${keyfile}" ]; then
+		echo "Unable to find any usable pubkeys." >&2
+		exit 1
+	fi
+}
+
+getPubkeysFromLDAP() {
+	local readonly user="${1}"
+
+	if [ -z "${LDAPSEARCH}" -o -z "${LDAPFIELD}" ]; then
+		echo "Use of LDAP not configured." >&2
+		echo "Please set the LDAPSEARCH and LDAPFIELD variables near the top of" >&2
+		echo "this script or in your environment." >&2
+		return
+	fi
+
+	verbose "Retrieving ssh pubkeys for '${user}' from LDAP..." 3
+
+	${LDAPSEARCH} uid="${user}" ${LDAPFIELD}				| \
+		grep -v dn: 							| \
+		sed -e 's/^ *//' 						| \
+		tr -d '\n'							| \
+		awk -v F="${LDAPFIELD}" '{ gsub(F ":* ", "\n"); print; }'	| \
+		sed -e 's/^%.*//'						| \
+		grep . > "${LDAP_KEYFILE}" || {
+			echo "Unable to retrieve ssh pubkey for '${user}' from LDAP." >&2
+			exit 1
+	}
+
+	# Keys may be base64, in which case (we assume) it will not
+	# contain any spaces, otherwise required for a valid ssh key.
+	if ! grep -q ' ' "${LDAP_KEYFILE}" ; then
+		${BASE64} <"${LDAP_KEYFILE}" 					| \
+			sed -e 's/^%.*//'					| \
+			grep . > "${LDAP_KEYFILE}.tmp" || {
+				echo "No usable pubkey found for '${user}' in LDAP." >&2
+				exit 1
+			}
+			mv ${LDAP_KEYFILE}.tmp "${LDAP_KEYFILE}"
+	fi
+
+	if [ ! -s "${LDAP_KEYFILE}" ]; then
+		echo "Unable to retrieve ssh pubkey for '${user}' from LDAP." >&2
+		exit 1
+	fi
+
+
+}
+
+
+usage() {
+	cat <<EOH
+Usage: ${PROGNAME} [-dehv] [-f file] [-k key] [-u user]
+	-d       decrypt
+	-e       encrypt (default)
+	-f file  encrypt/decrypt this file
+	-h       print this help and exit
+	-k key   encrypt using this public key file
+	-u user  encrypt for this user
+	-v       be verbose
+EOH
+}
+
+
+# purpose : check that all important variables are set correctly
+# input   : none
+# output  : none, globals may have been modified, may abort on error
+
+varCheck() {
+	local file
+
+	verbose "Checking that all variables look ok..."
+	if [ -n "${KEYFILE}" -a ! -r "${KEYFILE}" ]; then
+		echo "Unable to read the key file '${KEYFILE}'." >&2
+		exit 1
+	fi
+
+	if [ x"${ACTION}" = x"encrypt" ]; then
+		if [ -z "${KEYFILE}" -a -z "${RECIPIENTS}" ] ||
+			[ -n "${KEYFILE}" -a -n "${RECIPIENTS}" ]; then
+			echo "You need to provide either a key file or a username." >&2
+			exit 1
+		fi
+	else
+		if [ -n "${RECIPIENTS}" ]; then
+			echo "You can't specify a user when decrypting." >&2
+			exit 1
+		fi
+
+		if [ -z "${KEYFILE}" ]; then
+			verbose "No key specified, trying ~/.ssh/id_rsa..." 2
+			KEYFILE="${HOME}/.ssh/id_rsa"
+			if [ ! -r "${KEYFILE}" ]; then
+				echo "No key found.  Please use '-k'." >&2
+				exit 1
+			fi
+		fi
+	fi
+
+	if [ x"${UNAME}" = x"Linux" ]; then
+		BASE64="base64 -d -i"
+	else
+		BASE64="base64 -D"
+	fi
+}
+
+
+verbose() {
+	local msg="${1}"
+	local level="${2:-1}"
+	local i=0
+
+	if [ ${level} -le ${VERBOSITY} ]; then
+		while [ ${i} -lt ${level} ]; do
+			printf "=" >&2
+			i=$(( ${i} + 1 ))
+		done
+		echo "> ${msg}" >&2
+	fi
+}
+
+
+###
+### Main
+###
+
+trap 'cleanup' 0
+
+while getopts 'def:hk:u:v' opt; do
+	case ${opt} in
+		d)
+			ACTION="decrypt"
+		;;
+		e)
+			ACTION="encrypt"
+		;;
+		f)
+			if [ x"${OPTARG}" != x"-" ]; then
+				FILE="${OPTARG}"
+			fi
+		;;
+		h\?)
+			usage
+			exit 0
+			# NOTREACHED
+		;;
+		k)
+			KEYFILE="${OPTARG}"
+		;;
+		u)
+			RECIPIENTS="${OPTARG} ${RECIPIENTS}"
+		;;
+		v)
+			VERBOSITY=$(( ${VERBOSITY} + 1 ))
+		;;
+		*)
+			usage
+			exit 1
+			# NOTREACHED
+		;;
+	esac
+done
+shift $(($OPTIND - 1))
+
+if [ $# -ne 0 ]; then
+	usage
+	exit 1
+	# NOTREACHED
+fi
+
+varCheck
+
+mkdir -p "${KEYDIR}" "${PEMDIR}"
+
+${ACTION}
+
+exit 0
