@@ -56,7 +56,7 @@ already well distributed and trusted in many places.
 .Pp
 In particular,
 .Nm
-will convert the given public key into PKCS8 format, allowing it to be
+will convert the given public keys into PKCS8 format, allowing it to be
 used with
 .Xr openssl 1 Ns 's
 .Xr rsautl 1
@@ -78,14 +78,17 @@ will first look for that user's ~/.ssh/authorized_keys file, then the file
 /etc/ssh/authorized_keys/<user>, and finally, if neither of these is
 readable, it will look for the field specified by the LDAPFIELD variable
 for the given username in LDAP.
+In either case,
+.Nm
+will attempt to encrypt the data for each of the public keys found.
 .Pp
 The output from
 .Nm
 consists of several
 .Xr uuencode 1 Ns ed
 files.
-The first is the encrypted message, the following files the session key
-encrypted for each of the public keys.
+The first is the encrypted message, the following files are the session
+key encrypted for each of the public keys.
 .Nm
 will properly extract, decode and use these when the
 .Fl d
@@ -128,8 +131,7 @@ service.yml
 $
 .Ed
 .Pp
-To encrypt data for multiple recipients (as well as for all keys found for
-each recipient):
+To encrypt data for multiple recipients:
 .Bd -literal -offset īndent
 jass -u user1 -u user2 -u user3 <data
 .Ed

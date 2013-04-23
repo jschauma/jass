@@ -37,6 +37,10 @@ install -c -m 444 doc/jass.1 %{mybuilddir}/usr/share/man/man1/jass.1
 %doc /usr/share/man/man1/jass.1.gz
 
 %changelog
+
+# Next version:
+#-  man page improvements from kimor79
+
 * Wed Apr 17 2013 - jschauma@netmeister.org
 - 1.4:
 -  more portability fixes
