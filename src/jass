@@ -126,7 +126,7 @@ decrypt() {
 
 	verbose "Decoding data..." 2
 	verbose "Splitting input..." 3
-	( cd "${TDIR}" && awk '/^begin-base64 / { f="data"i++; } { print > f;}' "${FILE}" )
+	cat "${FILE}" | ( cd "${TDIR}" && awk '/^begin-base64 / { f="data"i++; } { print > f;}' )
 
 	verbose "Uudecoding ecnrypted message..." 3
 	( mkdir -p "${msgdir}" && cd "${msgdir}" && uudecode ../data0 )
