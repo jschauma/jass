@@ -160,9 +160,6 @@ decrypt() {
 	verbose "Decrypting session key..." 2
 	openssl rsautl -inkey "${KEYFILE}" -decrypt -in "${KEYDIR}/${skey}" -out "${TDIR}/skey"
 
-	if [ x"${FILE}" != x"/dev/stdin" ]; then
-		output="${outfile}"
-	fi
 	verbose "Decrypting message using session key..." 2
 	openssl enc -d -aes-256-cbc -pass "file:${TDIR}/skey"	\
 		-in "${msgdir}/${outfile}" -out "${output}"
