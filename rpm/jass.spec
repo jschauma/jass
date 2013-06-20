@@ -1,6 +1,6 @@
 %define name		jass
 %define release		1
-%define version 	1.4
+%define version 	1.5
 %define mybuilddir	${HOME}/redhat/BUILD/%{name}-%{version}-root
 
 Requires:		bash, coreutils, gawk, openldap-clients, openssh >= 5.6, openssl, sharutils
@@ -40,6 +40,7 @@ install -c -m 444 doc/jass.1 %{mybuilddir}/usr/share/man/man1/jass.1
 
 # Next version:
 #-  man page improvements from kimor79
+#-  Fix problem decrypting relative filenames.  via bleach / @gdb_
 
 * Wed Apr 17 2013 - jschauma@netmeister.org
 - 1.4:
