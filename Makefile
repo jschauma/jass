@@ -1,8 +1,25 @@
 NAME=jass
-VERSION=1.4
+VERSION=1.5
 
+HOST="buildhost"
 DSTROOT=osx/dstroot
 PREFIX?=/usr/local
+
+help:
+	@echo "The following targets are available:"
+	@echo "clean      remove temporary build files"
+	@echo "install    install ${NAME} into ${PREFIX}"
+	@echo "osxpkg     create an OS X package of ${NAME}-${VERSION}"
+	@echo "rpm        build an RPM of ${NAME}-${VERSION} on ${HOST}"
+	@echo "uninstall  uninstall ${NAME} from ${PREFIX}"
+
+rpm: buildrpm
+
+buildrpm:
+	@rsync -e ssh -avz . ${HOST}:${NAME}/.
+	@ssh ${HOST} "cd ${NAME}/rpm && sh mkrpm.sh ${NAME}.spec"
+	@scp ${HOST}:redhat/RPMS/noarch/${NAME}-${VERSION}-*.rpm /tmp
+	@ls /tmp/${NAME}-${VERSION}*rpm
 
 osxpkg: dmg
 
@@ -49,3 +66,4 @@ clean:
 	rm -f osx/${NAME}.pkg/Contents/Archive.bom
 	rm -f osx/${NAME}.pkg/Contents/Archive.pax.gz
 	rm -fr osx/${NAME}.pkg/Contents/Resources
+	rm -f osx/jass.dmg

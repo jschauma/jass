@@ -1,8 +1,8 @@
 .\"	Copyright (c) 2013 Twitter, Inc.
-.\"	Originally written by Jan Schaumann <jschauma@netmeister.org> in
+.\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd April 22, 2013
+.Dd August 02, 2013
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -12,6 +12,7 @@
 .Nm
 .Op Fl dehv
 .Op Fl f Ar file
+.Op Fl g Ar group
 .Op Fl k Ar key
 .Op Fl u Ar user
 .Sh DESCRIPTION
@@ -35,11 +36,13 @@ Encrypt/decrypt this file.
 If not specified,
 .Nm
 will read data from stdin.
+.It Fl g Ar group
+Encrypt for all members of this group.
 .It Fl h
 Print a short help message and exit.
 .It Fl k Ar key
-Encrypt the input using the given key file, expected to contain a single public
-SSH key.
+Encrypt the input using the keys found in
+.Ar key .
 .It Fl u Ar user
 Encrypt the input for this user, attempting to find suitable public SSH
 keys on the local system or from LDAP.
@@ -70,14 +73,21 @@ itself is encrypted using AES-256-CBC mode with said session key.
 .Pp
 As an alternative to providing a public key, a recipient may also be
 specified via the
+.Fl g
+and
 .Fl u
-flag.
-In that case,
+flags.
+If
+.Fl g
+was specified,
+.Nm
+will expand the given group to individual users.
+For each user,
 .Nm
 will first look for that user's ~/.ssh/authorized_keys file, then the file
 /etc/ssh/authorized_keys/<user>, and finally, if neither of these is
-readable, it will look for the field specified by the LDAPFIELD variable
-for the given username in LDAP.
+readable, it will look for the field 'twSSHPubkey' for the given username
+in LDAP.
 In either case,
 .Nm
 will attempt to encrypt the data for each of the public keys found.
@@ -87,8 +97,8 @@ The output from
 consists of several
 .Xr uuencode 1 Ns ed
 files.
-The first is the encrypted message, the following files are the session
-key encrypted for each of the public keys.
+The first is the encrypted message, the following files the session key
+encrypted for each of the public keys.
 .Nm
 will properly extract, decode and use these when the
 .Fl d
@@ -162,16 +172,9 @@ public key is in another format, it may break.
 .Pp
 .Nm
 will not accept private SSH keys in PEM format when decrypting.
-.Pp
-When encrypting, you cannot combine specific files given via the
-.Fl k
-flag with recipients specified via the
-.Fl u
-flag, even though you can use a single file containing multiple keys or
-specify multiple recipients.
 .Sh HISTORY
 .Nm
 was originally written by
 .An Jan Schaumann
-.Aq jschauma@netmeister.org
+.Aq jschauma@twitter.com
 in April 2013.

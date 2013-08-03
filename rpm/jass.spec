@@ -37,32 +37,33 @@ install -c -m 444 doc/jass.1 %{mybuilddir}/usr/share/man/man1/jass.1
 %doc /usr/share/man/man1/jass.1.gz
 
 %changelog
+* Fri Aug 02 2013 - jschauma@twitter.com
+- 1.5:
+-  allow '-k' and '-u' to be combined
+-  [SECURITY-9459]: identify users for whom data is encrypted
+-  [SECURITY-9455]: allow encryption for groups (-g)
 
-# Next version:
-#-  man page improvements from kimor79
-#-  Fix problem decrypting relative filenames.  via bleach / @gdb_
-
-* Wed Apr 17 2013 - jschauma@netmeister.org
+* Wed Apr 17 2013 - jschauma@twitter.com
 - 1.4:
 -  more portability fixes
 -  prep documentation and code for public release
 
-* Tue Apr 16 2013 - jschauma@netmeister.org
+* Tue Apr 16 2013 - jschauma@twitter.com
 - 1.3:
 -  portability fixes
 -  more specific dependencies
 
-* Fri Apr 12 2013 - jschauma@netmeister.org
+* Fri Apr 12 2013 - jschauma@twitter.com
 - 1.2:
 -  allow multiple recipients and multiple keys when encrypting data
 - 1.1:
 -  allow users to specify the input filename
 
-* Wed Apr 10 2013 - jschauma@netmeister.org
+* Wed Apr 10 2013 - jschauma@twitter.com
 - 1.0:
 -  generate a session key, then use that to encrypt the data
 -  change output format to be two uuencoded files
 
-* Tue Apr 02 2013 - jschauma@netmeister.org
+* Tue Apr 02 2013 - jschauma@twitter.com
 - 0.1:
 -  initial version
