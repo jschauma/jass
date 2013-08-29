@@ -4,7 +4,7 @@ NAME
      jass -- just another secret sharer
 
 SYNOPSIS
-     jass [-dehv] [-f file] [-k key] [-u user]
+     jass [-Vdehv] [-f file] [-g group] [-k key] [-u user]
 
 DESCRIPTION
      The jass tool allows you to share a secret with other people through the
@@ -14,6 +14,8 @@ DESCRIPTION
 OPTIONS
      The following options are supported by jass:
 
+     -V	       Print version number and exit.
+
      -e	       Perform encryption.  This is the default.
 
      -d	       Perform decryption.
@@ -21,10 +23,11 @@ OPTIONS
      -f file   Encrypt/decrypt this file.  If not specified, jass will read
 	       data from stdin.
 
+     -g group  Encrypt for all members of this group.
+
      -h	       Print a short help message and exit.
 
-     -k key    Encrypt the input using the given key file, expected to contain
-	       a single public SSH key.
+     -k key    Encrypt the input using the keys found in key.
 
      -u user   Encrypt the input for this user, attempting to find suitable
 	       public SSH keys on the local system or from LDAP.
@@ -45,19 +48,19 @@ DETAILS
      using AES-256-CBC mode with said session key.
 
      As an alternative to providing a public key, a recipient may also be
-     specified via the -u flag.	 In that case, jass will first look for that
-     user's ~/.ssh/authorized_keys file, then the file /etc/ssh/autho-
-     rized_keys/<user>, and finally, if neither of these is readable, it will
-     look for the field specified by the LDAPFIELD variable for the given
-     username in LDAP.	In either case, jass will attempt to encrypt the data
-     for each of the public keys found.
+     specified via the -g and -u flags.	 If -g was specified, jass will expand
+     the given group to individual users.  For each user, jass will first look
+     for that user's ~/.ssh/authorized_keys file, then the file
+     /etc/ssh/authorized_keys/<user>, and finally, if neither of these is
+     readable, it will look for the field 'twSSHPubkey' for the given username
+     in LDAP.  In either case, jass will attempt to encrypt the data for each
+     of the public keys found.
 
      The output from jass consists of several uuencode(1)ed files.  The first
-     is the encrypted message, the following files are the session key
-     encrypted for each of the public keys.  jass will properly extract,
-     decode and use these when the -d flag is specified, though it should be
-     noted that the decrypted session key briefly lives on the disk in a tem-
-     porary directory.
+     is the encrypted message, the following files the session key encrypted
+     for each of the public keys.  jass will properly extract, decode and use
+     these when the -d flag is specified, though it should be noted that the
+     decrypted session key briefly lives on the disk in a temporary directory.
 
 EXAMPLES
      To generate a secret message encrypted with the file 'bobs_pubkey' and
@@ -116,12 +119,8 @@ BUGS
 
      jass will not accept private SSH keys in PEM format when decrypting.
 
-     When encrypting, you cannot combine specific files given via the -k flag
-     with recipients specified via the -u flag, even though you can use a sin-
-     gle file containing multiple keys or specify multiple recipients.
-
 HISTORY
-     jass was originally written by Jan Schaumann <jschauma@netmeister.org> in
+     jass was originally written by Jan Schaumann <jschauma@twitter.com> in
      April 2013.
 
-NetBSD 5.0			April 22, 2013			    NetBSD 5.0
+NetBSD 5.0			August 28, 2013			    NetBSD 5.0

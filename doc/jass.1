@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd August 02, 2013
+.Dd August 28, 2013
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -10,7 +10,7 @@
 .Nd just another secret sharer
 .Sh SYNOPSIS
 .Nm
-.Op Fl dehv
+.Op Fl Vdehv
 .Op Fl f Ar file
 .Op Fl g Ar group
 .Op Fl k Ar key
@@ -26,6 +26,8 @@ for the given key or user.
 The following options are supported by
 .Nm :
 .Bl -tag -width _u_user_
+.It Fl V
+Print version number and exit.
 .It Fl e
 Perform encryption.
 This is the default.

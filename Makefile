@@ -1,5 +1,5 @@
 NAME=jass
-VERSION=1.5
+VERSION=$(shell sed -n -e 's/VERSION="\(.*\)"/\1/p' src/jass)
 
 HOST="buildhost"
 DSTROOT=osx/dstroot

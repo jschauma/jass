@@ -23,6 +23,10 @@ set -e
 
 umask 077
 
+VERSION="1.6"
+CAN_DECRYPT_FROM="1.6 1.5 1.4"
+CAN_ENCRYPT_FOR="1.6 1.5"
+
 PROGNAME="${0##*/}"
 ACTION="encrypt"
 FILE="/dev/stdin"
@@ -71,6 +75,40 @@ appendKey() {
 
 	IFS="${oIFS}"
 }
+
+
+# Let us pretend!  Versions are always either M.m or M.m.t.  We claim that
+# tiny version numbers would not introduce any incompatibility issues, so
+# we strip that.  This allows us to have tiny version increments without
+# having to explicitly list every single tiny version in our compatibility
+# list.
+checkCompatibility() {
+	local v v_maj_min
+	local pass=0
+	local readonly this_major_min=$(echo "${VERSION}" | sed -e 's/\([0-9]*\.[0-9]*\).*/\1/')
+
+	verbose "Checking version compatibility..." 2
+
+	if [ ! -f "${KEYDIR}/version" ]; then
+		verbose "Skipping version compatibility test for input without version data." 3
+		return
+	fi
+
+	for v in $(awk -F: '/CAN_ENCRYPT_FOR/ { print $2 }' "${KEYDIR}/version"); do
+		v_maj_min=$(echo ${v} | sed -e 's/\([0-9]*\.[0-9]*\).*/\1/')
+		if [ x"${v_maj_min}" = x"${this_major_min}" ]; then
+			return
+		fi
+	done
+
+	echo "Incompatible jass format.  Input was generated using:" >&2
+	cat "${KEYDIR}/version" >&2
+	echo >&2
+	echo "This is jass version ${VERSION}."
+	exit 1
+	# NOTREACHED
+}
+
 
 cleanup() {
 	rm -fr "${TDIR}"
@@ -179,6 +217,7 @@ decrypt() {
 	fi
 	( cd "${KEYDIR}" && uudecode ../data[1-9]* )
 
+	checkCompatibility
 
 	verbose "Identifying matching session key..." 3
 
@@ -237,6 +276,12 @@ encrypt() {
 		openssl rsautl -pubin -inkey "${pemfile}" -encrypt -pkcs -in "${SESSION_KEY}" |	\
 			uuencode -m ${fp}
 	done
+
+	verbose "Encoding version information..." 2
+	( echo "VERSION: ${VERSION}";
+	  echo "CAN_ENCRYPT_FOR: ${CAN_ENCRYPT_FOR}";
+	  echo "CAN_DECRYPT_FROM: ${CAN_DECRYPT_FROM}";
+	) | uuencode -m version
 }
 
 expandGroup() {
@@ -335,6 +380,7 @@ getPubkeys() {
 
 getPubkeysFromLDAP() {
 	local readonly user="${1}"
+	local readonly oIFS="${IFS}"
 
 	ldapVarCheck || return
 
@@ -348,33 +394,47 @@ getPubkeysFromLDAP() {
 		sed -e 's/^%.*//'						| \
 		grep . > "${LDAP_KEYFILE}" || {
 			echo "Unable to retrieve ssh pubkey for '${user}' from LDAP." >&2
-			exit 1
+			return
 	}
 
 	# Keys may be base64, in which case (we assume) it will not
 	# contain any spaces, otherwise required for a valid ssh key.
-	if ! grep -q ' ' "${LDAP_KEYFILE}" ; then
-		${BASE64} <"${LDAP_KEYFILE}" 					| \
-			sed -e 's/^%.*//'					| \
-			grep . > "${LDAP_KEYFILE}.tmp" || {
-				echo "No usable pubkey found for '${user}' in LDAP." >&2
-				exit 1
-			}
-			mv ${LDAP_KEYFILE}.tmp "${LDAP_KEYFILE}"
+
+	IFS="
+"
+
+	for line in $(cat "${LDAP_KEYFILE}"); do
+		if echo "${line}" | grep -q ' '; then
+			echo "${line}" >> "${LDAP_KEYFILE}.new"
+		else
+			echo "${line}" | eval ${BASE64}				| \
+				sed -e 's/^%.*//'				| \
+				grep . > "${LDAP_KEYFILE}.tmp" || {
+					echo "Ignoring unusable data in LDAP for '${user}'." >&2
+					continue
+				}
+			cat "${LDAP_KEYFILE}.tmp" >> "${LDAP_KEYFILE}.new"
+			rm "${LDAP_KEYFILE}.tmp"
+		fi
+	done
+
+	if [ -s "${LDAP_KEYFILE}.new" ]; then
+		mv "${LDAP_KEYFILE}.new" "${LDAP_KEYFILE}"
 	fi
+
+	IFS="${oIFS}"
 
 	if [ ! -s "${LDAP_KEYFILE}" ]; then
 		echo "Unable to retrieve ssh pubkey for '${user}' from LDAP." >&2
-		exit 1
+		return
 	fi
-
-
 }
 
 
 usage() {
 	cat <<EOH
-Usage: ${PROGNAME} [-dehv] [-f file] [-k key] [-u user]
+Usage: ${PROGNAME} [-Vdehv] [-f file] [-k key] [-u user]
+	-V       print version information and exit
 	-d       decrypt
 	-e       encrypt (default)
 	-f file  encrypt/decrypt this file
@@ -473,15 +533,21 @@ verbose() {
 	fi
 }
 
-
 ###
 ### Main
 ###
 
 trap 'cleanup' 0
 
-while getopts 'def:g:hk:u:v' opt; do
+while getopts 'Vdef:g:hk:u:v' opt; do
 	case ${opt} in
+		V)
+			echo "jass version ${VERSION}"
+			echo "Able to decrypt input generated with jass versions: ${CAN_DECRYPT_FROM}"
+			echo "Able to encrypt data for jass versions: ${CAN_ENCRYPT_FOR}"
+			exit 0
+			# NOTREACHED
+		;;
 		d)
 			ACTION="decrypt"
 		;;
