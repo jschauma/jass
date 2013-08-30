@@ -23,9 +23,9 @@ set -e
 
 umask 077
 
-VERSION="1.6"
-CAN_DECRYPT_FROM="1.6 1.5 1.4"
-CAN_ENCRYPT_FOR="1.6 1.5"
+VERSION="1.7"
+CAN_DECRYPT_FROM="1.7 1.6 1.5 1.4"
+CAN_ENCRYPT_FOR="1.7 1.6 1.5"
 
 PROGNAME="${0##*/}"
 ACTION="encrypt"
@@ -163,18 +163,13 @@ createKeyFiles() {
 			continue
 		fi
 
-		fp=$(ssh-keygen -l -f ${k} | awk '{print $2}')
-		# ssh-keygen does not yield errors to stderr; if
-		# the input is not a valid key, it will print
-		# "mumble is not a public key" instead.
-		if [ ! -s "${fp}" -a x"${fp}" = x"is" ]; then
-			verbose "Skipping invalid 'pubkey'..." 4
-			verbose "$(cat ${k})" 5
-			continue
+		fp=$(getFingerprintFromKey ${k} encrypt)
+		if [ -n "${fp}" ]; then
+			found=1
+			mv ${k} "${KEYDIR}"/${recipient}-${fp}
+		else
+			verbose "Skipping invalid keyfile '${k}'..." 3
 		fi
-
-		found=1
-		mv ${k} "${KEYDIR}"/${recipient}-${fp}
 	done
 
 	if [ ${found} -eq 0 ]; then
@@ -190,7 +185,11 @@ decrypt() {
 	local found=0
 
 	local readonly msgdir="${TDIR}/message"
-	local readonly localfp=$(ssh-keygen -l -f ${KEYFILES} | awk '{print $2}')
+	local readonly localfp=$(getFingerprintFromKey ${KEYFILES} decrypt)
+
+	if [ -z "${localfp}" ]; then
+		exit 1
+	fi
 
 	verbose "Decrypting..."
 
@@ -329,6 +328,46 @@ generateSessionKey() {
 
 	openssl rand 32 -base64 -out "${SESSION_KEY}" 2>/dev/null
 }
+
+getFingerprintFromKey() {
+	local readonly keyfile="${1}"
+	local readonly mode="${2}"
+	local fp
+
+	verbose "Extracting fingerprint from '${keyfile}'..." 4
+
+	fp=$(ssh-keygen -l -f "${keyfile}" | awk '{print $2}')
+
+	# ssh-keygen does not yield errors to stderr; if the input is not
+	# a valid key, it will print "mumble is not a public key" instead.
+
+	# When decrypting, $keyfile will be a privkey, and we can only get
+	# the fingerprint as above if the pubkey happens to be stored
+	# alongside the privkey.  (It was worth trying.)
+	#
+	# Otherwise, we need to extract the pubkey from the privkey, for
+	# which we need to prompt for the password.  Unfortunately we
+	# can't intercept the password prompt here easily, so the user may
+	# end up being prompted again later.
+
+	if [ ! -z "${fp}" -a x"${fp}" = x"is" ]; then
+		if [ x"${mode}" = x"encrypt" ]; then
+			echo "${keyfile} appears not to be a valid ssh key." >&2
+			return
+		else
+			verbose "Trying to convert '${keyfile}' to a pubkey..." 4
+			ssh-keygen -y -f "${keyfile}" >"${TDIR}/pubkey" </dev/tty || {
+				echo "Unable to convert ${keyfile} into a pubkey." >&2
+				echo "Either the file is not a privkey or the passphrase didn't match." >&2
+				return
+			}
+			fp=$(ssh-keygen -l -f "${TDIR}/pubkey" | awk '{print $2}')
+		fi
+	fi
+
+	echo "${fp}"
+}
+
 
 # Retrieve all available keys for all recipients and store them in a
 # single file, 'keyfile'.

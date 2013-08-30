@@ -1,6 +1,6 @@
 %define name		jass
 %define release		1
-%define version 	1.6
+%define version 	1.7
 %define mybuilddir	${HOME}/redhat/BUILD/%{name}-%{version}-root
 
 Requires:		bash, coreutils, gawk, openldap-clients, openssh >= 5.6, openssl, sharutils
@@ -37,8 +37,11 @@ install -c -m 444 doc/jass.1 %{mybuilddir}/usr/share/man/man1/jass.1
 %doc /usr/share/man/man1/jass.1.gz
 
 %changelog
-
+* Fri Aug 30 2013 - jschauma@twitter.com
+- 1.7:
 -  add '-V' to usage statement
+-  allow decryption using a privkey only (ie, extract pubkey from privkey
+   instad of relying on the pubkey to exist alongside the privkey)
 
 * Wed Aug 28 2013 - jschauma@twitter.com
 - 1.6:
