@@ -10,8 +10,6 @@
 # Set these two variables to match your use of LDAP for ssh keys.
 #LDAPFIELD="SSHPubkey"
 #LDAPSEARCH="ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com"
-LDAPFIELD="twSSHPubkey"
-LDAPSEARCH="ldapsearch -LLLxh ldap.local.twitter.com -b dc=ods,dc=twitter,dc=corp"
 
 ### You should not have to edit anything below this line.
 
