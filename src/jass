@@ -21,12 +21,13 @@ set -e
 
 umask 077
 
-VERSION="1.7"
+VERSION="1.7.1"
 CAN_DECRYPT_FROM="1.7 1.6 1.5 1.4"
 CAN_ENCRYPT_FOR="1.7 1.6 1.5"
 
 PROGNAME="${0##*/}"
 ACTION="encrypt"
+EXPERT="no"
 FILE="/dev/stdin"
 KEYFILES=""
 RECIPIENTS=""
@@ -235,7 +236,12 @@ decrypt() {
 	fi
 
 	verbose "Decrypting session key..." 2
-	openssl rsautl -inkey ${KEYFILES} -decrypt -in "${KEYDIR}/${skey}" -out "${TDIR}/skey"
+	openssl rsautl -inkey ${KEYFILES} -decrypt -in "${KEYDIR}/${skey}" -out "${TDIR}/skey" || {
+		echo >&2
+		echo "Unable to decrypt session key." >&2
+		echo "Are you sure the passphrase unlocks ${KEYFILES}?" >&2
+		exit 1
+	}
 
 	verbose "Decrypting message using session key..." 2
 	openssl enc -d -aes-256-cbc -pass "file:${TDIR}/skey"	\
@@ -576,8 +582,11 @@ verbose() {
 
 trap 'cleanup' 0
 
-while getopts 'Vdef:g:hk:u:v' opt; do
+while getopts 'EVdef:g:hk:u:v' opt; do
 	case ${opt} in
+		E)
+			EXPERT="yes"
+		;;
 		V)
 			echo "jass version ${VERSION}"
 			echo "Able to decrypt input generated with jass versions: ${CAN_DECRYPT_FROM}"

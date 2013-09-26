@@ -13,7 +13,12 @@ help:
 	@echo "rpm        build an RPM of ${NAME}-${VERSION} on ${HOST}"
 	@echo "uninstall  uninstall ${NAME} from ${PREFIX}"
 
-rpm: buildrpm
+rpm: spec buildrpm
+
+spec: rpm/${NAME}.spec
+
+rpm/${NAME}.spec: rpm/${NAME}.spec.in
+	cat $< CHANGES >$@
 
 buildrpm:
 	@rsync -e ssh -avz . ${HOST}:${NAME}/.
@@ -61,7 +66,7 @@ uninstall:
 
 clean:
 	sudo rm -fr ${DSTROOT}
-	rm -f .prepdone
+	rm -f .prepdone rpm/${NAME}.spec
 	rm -f osx/${NAME}.dmg osx/.DS_Store
 	rm -f osx/${NAME}.pkg/Contents/Archive.bom
 	rm -f osx/${NAME}.pkg/Contents/Archive.pax.gz
