@@ -1,0 +1,49 @@
+<HTML>
+	<HEAD>
+		<TITLE>JassBird</TITLE>
+	</HEAD>
+	<BODY>
+		<h1>JassBird - for those too lazy to run
+		<tt>jass(1)</tt> themselves</h1>
+		<hr>
+		<p>You can specify multiple users as a
+		comma-separated list of usernames.
+		</p>
+		<p>You can specify multiple groups as a
+		comma-separated list of group names.
+		</p>
+		<p>You have to specify at least one user or one
+		group; users and groups may both be specified
+		simultaneously.</p>
+		<p>You can provide input <em>either</em> via the text field
+		<em>or</em> by uploading a file.</p>
+		<hr>
+		<FORM name="jass" action="/cgi-bin/jass.cgi" method="POST" enctype="multipart/form-data">
+			<TABLE BORDER="0">
+				<TR>
+					<TD>User(s) to encrypt the data for:</TD>
+					<TD><INPUT type="text" name="users"/></TD>
+				</TR>
+				<TR>
+					<TD>LDAP group(s) to encrypt the data for:</TD>
+					<TD><INPUT type="text" name="groups"/></TD>
+				</TR>
+				<TR>
+					<TD valign="top">Text to encrypt:</TD>
+					<TD><textarea name="text" rows="24" cols="80"></textarea></TD>
+				</TR>
+				<TR>
+					<TD>File to encrypt:</TD>
+					<TD><INPUT type="file" name="infile"/></TD>
+				</TR>
+				<TR>
+					<TD COLSPAN="2"><INPUT type="submit" value="Submit" /></TD>
+				</TR>
+			</TABLE>
+		</FORM>
+		<hr>
+		<p>
+			Please see <a href="https://github.com/jschauma/jass">jass</a> for details.
+		</p>
+	</BODY>
+</HTML>
