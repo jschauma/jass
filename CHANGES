@@ -1,0 +1,59 @@
+* Tue Nov 26 2013 - jschauma@twitter.com
+- 1.7.2:
+-  [SECURITY-10466]: handle keys with options and multiple comments
+-  document '-E' in usage
+
+* Wed Sep 25 2013 - jschauma@twitter.com
+- 1.7.1:
+-  add an option to skip the version check
+-  [SECURITY-9720]: if we can't decrypt the session key, suggest to the
+   user that they might have entered the wrong passphrase
+-  [SECURITY-9755]: export changelog into a separate file
+
+* Fri Aug 30 2013 - jschauma@twitter.com
+- 1.7:
+-  add '-V' to usage statement
+-  allow decryption using a privkey only (ie, extract pubkey from privkey
+   instad of relying on the pubkey to exist alongside the privkey)
+
+* Wed Aug 28 2013 - jschauma@twitter.com
+- 1.6:
+-  [SECURITY-9516]: add versioning and compatibility checks to jass
+-  [SECURITY-9668]: don't exit when we're unable to find keys; just print
+   an error
+-  add '-V' flag to print version number
+-  if multiple keys in ldap are found, check for base64 encoded ones on
+   each
+
+* Fri Aug 02 2013 - jschauma@twitter.com
+- 1.5:
+-  allow '-k' and '-u' to be combined
+-  [SECURITY-9459]: identify users for whom data is encrypted
+-  [SECURITY-9455]: allow encryption for groups (-g)
+-  man page improvements from kimor79
+-  fix problem decrypting relative filenames.  via bleach / @gdb_
+
+* Wed Apr 17 2013 - jschauma@twitter.com
+- 1.4:
+-  more portability fixes
+-  prep documentation and code for public release
+
+* Tue Apr 16 2013 - jschauma@twitter.com
+- 1.3:
+-  portability fixes
+-  more specific dependencies
+
+* Fri Apr 12 2013 - jschauma@twitter.com
+- 1.2:
+-  allow multiple recipients and multiple keys when encrypting data
+- 1.1:
+-  allow users to specify the input filename
+
+* Wed Apr 10 2013 - jschauma@twitter.com
+- 1.0:
+-  generate a session key, then use that to encrypt the data
+-  change output format to be two uuencoded files
+
+* Tue Apr 02 2013 - jschauma@twitter.com
+- 0.1:
+-  initial version

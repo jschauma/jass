@@ -21,7 +21,7 @@ set -e
 
 umask 077
 
-VERSION="1.7.1"
+VERSION="1.7.2"
 CAN_DECRYPT_FROM="1.7 1.6 1.5 1.4"
 CAN_ENCRYPT_FOR="1.7 1.6 1.5"
 
@@ -48,7 +48,8 @@ VERBOSITY=0
 ###
 
 # Read one ssh key per line from the given file and append it to the
-# 'keyfile'.  Add the given recipient name as a comment to the file.
+# 'keyfile'.  This will strip any key options and comments, then add the
+# given recipient name as a comment to the file.
 appendKey() {
 	local readonly keyfile="${TDIR}/keyfile"
 
@@ -68,7 +69,13 @@ appendKey() {
 
 	verbose "Appending keys for '${recipient}' to keyfile'..." 3
 
-	for line in $(cat ${file}); do
+	# SSH keys are more complex than you think.  They may contain
+	# leading options (including quoted strings containing spaces) and
+	# trailing comments.  All we know -- and care about -- are the
+	# actual key.  Since we only support RSA keys, we can ignore the
+	# other options; if somebody creates a key with this pattern as a
+	# comment, then they can go screw themselves.
+	for line in $(sed -n -e 's/.*\(ssh-rsa AAAAB3NzaC1[^ ]*\).*/\1/p' "${file}"); do
 		echo "${line} ${recipient}" >> "${keyfile}"
 	done
 
@@ -120,12 +127,6 @@ convertKeyFiles() {
 	verbose "Converting ssh pubkeys into PKCS8 format..." 2
 
 	for pubkey in "${KEYDIR}"/*; do
-		# Keys may contain options in the beginning, so nuke the first
-		# option.  Note: since we add the recipient as the last
-		# field, we need to check for NF > 4, not NF > 3!
-		<"${pubkey}" awk '{ if (NF > 4) { $1=""; }; print }' >"${pubkey}.tmp" && \
-			mv "${pubkey}.tmp" "${pubkey}"
-
 		pemfile=$(basename ${pubkey})
 		ssh-keygen -P '' -f "${pubkey}" -e -m PKCS8 > "${PEMDIR}/${pemfile}" 2>/dev/null ||	\
 			verbose "Unable to convert ssh key '$(basename ${pubkey})' to PKCS8 format."
@@ -215,7 +216,9 @@ decrypt() {
 	fi
 	( cd "${KEYDIR}" && uudecode ../data[1-9]* )
 
-	checkCompatibility
+	if [ x"${EXPERT}" = x"no" ]; then
+		checkCompatibility
+	fi
 
 	verbose "Identifying matching session key..." 3
 
@@ -476,7 +479,8 @@ getPubkeysFromLDAP() {
 
 usage() {
 	cat <<EOH
-Usage: ${PROGNAME} [-Vdehv] [-f file] [-k key] [-u user]
+Usage: ${PROGNAME} [-EVdehv] [-f file] [-k key] [-u user]
+        -E       expert mode; skip certain tests
 	-V       print version information and exit
 	-d       decrypt
 	-e       encrypt (default)

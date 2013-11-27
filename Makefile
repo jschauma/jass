@@ -71,4 +71,3 @@ clean:
 	rm -f osx/${NAME}.pkg/Contents/Archive.bom
 	rm -f osx/${NAME}.pkg/Contents/Archive.pax.gz
 	rm -fr osx/${NAME}.pkg/Contents/Resources
-	rm -f osx/jass.dmg
