@@ -1,7 +1,7 @@
 Sharing Secrets
 ===============
 Every now and then we have a need to share a "secret" with some
-cow-orkers.  Coordinating this can be problematic, since you would either
+co-workers.  Coordinating this can be problematic, since you would either
 need to be in the same physical space at the same time, or you would need
 to be able to talk over the phone (and know that who you're talking to is
 in fact the person you think you're talking to) etc. etc.
