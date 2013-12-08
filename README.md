@@ -97,7 +97,7 @@ ssh(1) is less than that, jass(1) will not work.  Check the output of 'ssh
 -V' and/or review the manual page for ssh-keygen(1) to ensure it supports
 the '-m PKCS8' flag.
 
-The second option is that you're running on Mac OS X MAvericks.  Their
+The second option is that you're running on Mac OS X Mavericks.  Their
 version of ssh reports as
 
     OpenSSH_6.2p2, OSSLShim 0.9.8r 8 Dec 2011
