@@ -97,6 +97,15 @@ ssh(1) is less than that, jass(1) will not work.  Check the output of 'ssh
 -V' and/or review the manual page for ssh-keygen(1) to ensure it supports
 the '-m PKCS8' flag.
 
+The second option is that you're running on Mac OS X MAvericks.  Their
+version of ssh reports as
+
+    OpenSSH_6.2p2, OSSLShim 0.9.8r 8 Dec 2011
+
+and whatever they did in the OSSLShim appears to have removed the ability
+to convert RSA to PKCS8.  For the time being, on that platform your only
+option is to use a different OpenSSH.
+
 
 Why don't we just use PGP?
 --------------------------
