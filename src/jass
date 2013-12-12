@@ -21,14 +21,17 @@ set -e
 
 umask 077
 
-VERSION="1.7.2"
-CAN_DECRYPT_FROM="1.7 1.6 1.5 1.4"
-CAN_ENCRYPT_FOR="1.7 1.6 1.5"
+VERSION="1.8.0"
+CAN_DECRYPT_FROM="1.8 1.7 1.6 1.5 1.4"
+CAN_ENCRYPT_FOR="1.8 1.7 1.6 1.5"
 
 PROGNAME="${0##*/}"
+
 ACTION="encrypt"
+URLS=""
 EXPERT="no"
 FILE="/dev/stdin"
+GITHUB="https://github.com/<user>.keys"
 KEYFILES=""
 RECIPIENTS=""
 RECIPIENT_GROUPS=""
@@ -40,6 +43,7 @@ LDAP_KEYFILE="${TDIR}/ldap"
 KEYDIR="${TDIR}/pubkeys"
 PEMDIR="${TDIR}/pems"
 SESSION_KEY="${TDIR}/secret"
+URLS_KEYFILE="${TDIR}/urls"
 
 VERBOSITY=0
 
@@ -55,6 +59,10 @@ appendKey() {
 
 	local readonly file="${1}"
 	local recipient="${2}"
+
+	if [ ! -s "${file}" ]; then
+		return
+	fi
 
 	oIFS="${IFS}"
 	IFS='
@@ -391,6 +399,7 @@ getPubkeys() {
 
 	if [ -n "${RECIPIENTS}" ]; then
 		for r in ${RECIPIENTS}; do
+			found=0
 			# Tilde expansion happens before variable expansion, so
 			# we need to eval echo here.
 			tildefile=$(eval echo ~${r}/.ssh/authorized_keys)
@@ -404,9 +413,18 @@ getPubkeys() {
 			done
 
 			if [ ${found} -eq 0 ]; then
-				getPubkeysFromLDAP "${r}"
+				getPubkeysFromLDAP "${r}" || true
 				if [ -s "${LDAP_KEYFILE}" ]; then
 					appendKey "${LDAP_KEYFILE}" "${r}"
+					found=1
+				fi
+			fi
+
+			if [ ${found} -eq 0 -a -n "${URLS}" ]; then
+				getPubkeysFromURLs "${r}" || true
+				if [ -s "${URLS_KEYFILE}" ]; then
+					appendKey "${URLS_KEYFILE}" "${r}"
+					found=1
 				fi
 			fi
 		done
@@ -430,7 +448,7 @@ getPubkeysFromLDAP() {
 
 	ldapVarCheck || return
 
-	verbose "Retrieving ssh pubkeys for '${user}' from LDAP..." 3
+	verbose "Trying to get ssh pubkeys for '${user}' from LDAP..." 3
 
 	${LDAPSEARCH} uid="${user}" ${LDAPFIELD}				| \
 		grep -v dn: 							| \
@@ -439,7 +457,7 @@ getPubkeysFromLDAP() {
 		awk -v F="${LDAPFIELD}" '{ gsub(F ":* ", "\n"); print; }'	| \
 		sed -e 's/^%.*//'						| \
 		grep . > "${LDAP_KEYFILE}" || {
-			echo "Unable to retrieve ssh pubkey for '${user}' from LDAP." >&2
+			verbose "Unable to retrieve ssh pubkey for '${user}' from LDAP."
 			return
 	}
 
@@ -476,6 +494,21 @@ getPubkeysFromLDAP() {
 	fi
 }
 
+getPubkeysFromURLs() {
+	local readonly user="${1}"
+	local url
+
+	verbose "Trying to get ssh pubkeys for '${user}' from URLs..." 3
+	rm -f "${URLS_KEYFILE}"
+	for url in ${URLS}; do
+		url=$(echo "${url}" | sed -e "s/<user>/${user}/g")
+		verbose "Trying to get '${url}'..." 4
+		curl -s "${url}" >> "${URLS_KEYFILE}" || {
+			echo "Unable to curl '${url}'." >&2
+		}
+	done
+}
+
 
 usage() {
 	cat <<EOH
@@ -494,9 +527,9 @@ EOH
 
 ldapVarCheck() {
 	if [ -z "${LDAPSEARCH}" -o -z "${LDAPFIELD}" ]; then
-		echo "Use of LDAP not configured." >&2
-		echo "Please set the LDAPSEARCH and LDAPFIELD variables near the top of" >&2
-		echo "this script or in your environment." >&2
+		verbose "Use of LDAP not configured."
+		verbose "Please set the LDAPSEARCH and LDAPFIELD variables near the top of" 2
+		verbose "this script or in your environment." 2
 		return 1
 	fi
 	return 0
@@ -586,10 +619,13 @@ verbose() {
 
 trap 'cleanup' 0
 
-while getopts 'EVdef:g:hk:u:v' opt; do
+while getopts 'EGVdef:g:hk:u:v' opt; do
 	case ${opt} in
 		E)
 			EXPERT="yes"
+		;;
+		G)
+			URLS="${URLS} ${GITHUB}"
 		;;
 		V)
 			echo "jass version ${VERSION}"

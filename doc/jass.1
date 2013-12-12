@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd September 25, 2013
+.Dd December 12, 2013
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -10,7 +10,7 @@
 .Nd just another secret sharer
 .Sh SYNOPSIS
 .Nm
-.Op Fl EVdehv
+.Op Fl EGVdehv
 .Op Fl f Ar file
 .Op Fl g Ar group
 .Op Fl k Ar key
@@ -31,6 +31,8 @@ Expert mode.
 This may skip certain compatibility tests.
 .It Fl V
 Print version number and exit.
+.It Fl G
+Also look for public keys on GitHub.
 .It Fl e
 Perform encryption.
 This is the default.
@@ -90,10 +92,16 @@ will expand the given group to individual users.
 For each user,
 .Nm
 will first look for that user's ~/.ssh/authorized_keys file, then the file
-/etc/ssh/authorized_keys/<user>, and finally, if neither of these is
-readable, it will look for the field 'twSSHPubkey' for the given username
-in LDAP.
-In either case,
+/etc/ssh/authorized_keys/<user>.
+If neither of these is readable, it will look for the field 'twSSHPubkey'
+for the given username in LDAP.
+If a usable pubkey was still not found,
+.Nm
+may then look for a key on the internet, for example on GitHub if the
+.Fl G
+flag was specified.
+.Pp
+Eventually,
 .Nm
 will attempt to encrypt the data for each of the public keys found.
 .Pp

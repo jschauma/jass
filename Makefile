@@ -18,7 +18,7 @@ rpm: spec buildrpm
 spec: rpm/${NAME}.spec
 
 rpm/${NAME}.spec: rpm/${NAME}.spec.in
-	cat $< CHANGES >$@
+	cat $< CHANGES | sed -e "s/VERSION/${VERSION}/" >$@
 
 buildrpm:
 	@rsync -e ssh -avz . ${HOST}:${NAME}/.
