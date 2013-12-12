@@ -4,7 +4,7 @@ NAME
      jass -- just another secret sharer
 
 SYNOPSIS
-     jass [-Vdehv] [-f file] [-g group] [-k key] [-u user]
+     jass [-EGVdehv] [-f file] [-g group] [-k key] [-u user]
 
 DESCRIPTION
      The jass tool allows you to share a secret with other people through the
@@ -14,7 +14,11 @@ DESCRIPTION
 OPTIONS
      The following options are supported by jass:
 
+     -E	       Expert mode.  This may skip certain compatibility tests.
+
      -V	       Print version number and exit.
+
+     -G	       Also look for public keys on GitHub.
 
      -e	       Perform encryption.  This is the default.
 
@@ -51,10 +55,13 @@ DETAILS
      specified via the -g and -u flags.	 If -g was specified, jass will expand
      the given group to individual users.  For each user, jass will first look
      for that user's ~/.ssh/authorized_keys file, then the file
-     /etc/ssh/authorized_keys/<user>, and finally, if neither of these is
-     readable, it will look for the field 'twSSHPubkey' for the given username
-     in LDAP.  In either case, jass will attempt to encrypt the data for each
-     of the public keys found.
+     /etc/ssh/authorized_keys/<user>.  If neither of these is readable, it
+     will look for the field 'twSSHPubkey' for the given username in LDAP.  If
+     a usable pubkey was still not found, jass may then look for a key on the
+     internet, for example on GitHub if the -G flag was specified.
+
+     Eventually, jass will attempt to encrypt the data for each of the public
+     keys found.
 
      The output from jass consists of several uuencode(1)ed files.  The first
      is the encrypted message, the following files the session key encrypted
@@ -123,4 +130,4 @@ HISTORY
      jass was originally written by Jan Schaumann <jschauma@twitter.com> in
      April 2013.
 
-NetBSD 5.0			August 28, 2013			    NetBSD 5.0
+NetBSD 5.0		       December 12, 2013		    NetBSD 5.0

@@ -70,6 +70,14 @@ via email:
     $ jass -u jschauma <service.yml | \
             mail -s "Please do the needful!" jschauma
 
+If you do not have a user named 'jschauma' on your local systems, nor in
+LDAP (if you set that up), then you can ask jass(1) to look that user's
+key on GitHub by specifying the '-G' flag.
+
+For example, to encrypt a message for Linus Torvalds, you might run:
+
+    $ echo "0-day in ext4, ping me for details" | jass -G -u torvalds
+
 Please see the manual page for details and other examples.
 
 Decrypting data
