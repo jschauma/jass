@@ -21,7 +21,7 @@ set -e
 
 umask 077
 
-VERSION="1.8.0"
+VERSION="1.8.1"
 CAN_DECRYPT_FROM="1.8 1.7 1.6 1.5 1.4"
 CAN_ENCRYPT_FOR="1.8 1.7 1.6 1.5"
 
@@ -97,7 +97,7 @@ appendKey() {
 # having to explicitly list every single tiny version in our compatibility
 # list.
 checkCompatibility() {
-	local v v_maj_min
+	local greater v v_maj_min
 	local pass=0
 	local readonly this_major_min=$(echo "${VERSION}" | sed -e 's/\([0-9]*\.[0-9]*\).*/\1/')
 
@@ -110,7 +110,8 @@ checkCompatibility() {
 
 	for v in $(awk -F: '/CAN_ENCRYPT_FOR/ { print $2 }' "${KEYDIR}/version"); do
 		v_maj_min=$(echo ${v} | sed -e 's/\([0-9]*\.[0-9]*\).*/\1/')
-		if [ x"${v_maj_min}" = x"${this_major_min}" ]; then
+		greater=$(echo "${this_major_min} >= ${v_maj_min}" | bc)
+		if [ "${greater}" -gt 0 ]; then
 			return
 		fi
 	done

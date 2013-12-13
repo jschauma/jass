@@ -1,3 +1,8 @@
+* Fri Dec 13 2013 - jschauma@twitter.com
+- 1.8.1
+-  better detection of compatibilities
+-  add dependency on curl for the rpm
+
 * Thu Dec 12 2013 - jschauma@twitter.com
 - 1.8.0
 -  add support for fetching pubkeys from GitHub
