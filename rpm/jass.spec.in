@@ -3,9 +3,8 @@
 %define version 	VERSION
 %define mybuilddir	${HOME}/redhat/BUILD/%{name}-%{version}-root
 
-Requires:		bash, coreutils, curl, gawk, openldap-clients, openssh >= 5.6, openssl, sharutils
+Requires:		gawk, openldap-clients
 BuildRoot:		%{mybuilddir}
-BuildArch:		noarch
 Summary:		secret sharing utility
 License: 		BSD
 Name: 			%{name}

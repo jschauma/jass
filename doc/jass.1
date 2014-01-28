@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd December 12, 2013
+.Dd December 31, 2013
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -10,7 +10,7 @@
 .Nd just another secret sharer
 .Sh SYNOPSIS
 .Nm
-.Op Fl EGVdehv
+.Op Fl GVdehv
 .Op Fl f Ar file
 .Op Fl g Ar group
 .Op Fl k Ar key
@@ -26,9 +26,6 @@ for the given key or user.
 The following options are supported by
 .Nm :
 .Bl -tag -width _u_user_
-.It Fl E
-Expert mode.
-This may skip certain compatibility tests.
 .It Fl V
 Print version number and exit.
 .It Fl G
@@ -61,22 +58,16 @@ Can be specified multiple times.
 It is not uncommon for people within a given organization to have a need
 to share secrets with one another.
 .Nm
-lets you do this through the use of SSH keys, as those are frequently
-already well distributed and trusted in many places.
+lets you do this through the use of SSH RSA keys, as those are frequently
+already well distributed and trusted.
 .Pp
-In particular,
-.Nm
-will convert the given public keys into PKCS8 format, allowing it to be
-used with
-.Xr openssl 1 Ns 's
-.Xr rsautl 1
-utility.
 Since asymmetric encryption is only suitable for inputs smaller than the
 keysize,
 .Nm
-will then generate a 256 bit session key.
-This session key is encrypted using the user's public key, while the data
-itself is encrypted using AES-256-CBC mode with said session key.
+will extract the public RSA key from an SSH formatted key,
+generate a 256 bit session key, and then encrypt the session key using the
+public RSA key.
+The data itself is encrypted using AES-256-CBC mode with said session key.
 .Pp
 As an alternative to providing a public key, a recipient may also be
 specified via the
@@ -143,19 +134,8 @@ To encrypt the file service.yml for the user 'jschauma':
 jass -u jschauma -f service.yml >service.yml.enc
 .Ed
 .Pp
-This command differs from the previous examples in that the name of the
-input file is encoded in the output, allowing the recipient to restore the
-file directly:
-.Bd -literal -offset indent
-$ jass -d -k ~/.ssh/id_rsa -f service.yml.enc
-Enter pass phrase for /home/jschauma/.ssh/id_rsa:
-$ ls
-service.yml
-$
-.Ed
-.Pp
 To encrypt data for multiple recipients:
-.Bd -literal -offset īndent
+.Bd -literal -offset indent
 jass -u user1 -u user2 -u user3 <data
 .Ed
 .Sh ENVIRONMENT
@@ -173,7 +153,9 @@ SSHPubkey
 ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
 .El
 .Sh SEE ALSO
+.Xr enc 1 ,
 .Xr openssl 1 ,
+.Xr rsautl 1 ,
 .Xr ssh-keygen 1
 .Sh BUGS
 .Nm
@@ -181,7 +163,7 @@ will only allow RSA keys.
 .Pp
 .Nm
 assumes the public SSH key to be in OpenSSH's default format; if the
-public key is in another format, it may break.
+public key is in another format, it will fail.
 .Pp
 .Nm
 will not accept private SSH keys in PEM format when decrypting.

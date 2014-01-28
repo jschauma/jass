@@ -1,3 +1,17 @@
+* Mon Jan 27 2014 - jschauma@twitter.com
+- 2.1
+-  remove dependencies on openssl(1) and ssh-keygen(1) altogether by
+   rewriting all encryption/decryption natively in Go
+   (this happens to also address [SECURITY-11186])
+-  fix tyop in usage
+
+* Tue Dec 31 2013 - jschauma@twitter.com
+- 2.0
+-  complete rewrite of jass(1) in Go
+-  no longer depend on ssh-keygen(1)'s ability to convert ssh keys to
+   PKCS8 (as is broken in OS X Mavericks, or unavailable in OpenSSH before
+   5.6)
+
 * Fri Dec 13 2013 - jschauma@twitter.com
 - 1.8.1
 -  better detection of compatibilities

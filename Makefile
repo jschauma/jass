@@ -1,5 +1,5 @@
 NAME=jass
-VERSION=$(shell sed -n -e 's/VERSION="\(.*\)"/\1/p' src/jass)
+VERSION=$(shell sed -n -e 's/^const VERSION = "\(.*\)"/\1/p' src/jass.go)
 
 HOST="buildhost"
 DSTROOT=osx/dstroot
@@ -7,10 +7,13 @@ PREFIX?=/usr/local
 
 help:
 	@echo "The following targets are available:"
+	@echo "build      build the executable"
 	@echo "clean      remove temporary build files"
 	@echo "install    install ${NAME} into ${PREFIX}"
 	@echo "osxpkg     create an OS X package of ${NAME}-${VERSION}"
+	@echo "release    get everything ready for a new release"
 	@echo "rpm        build an RPM of ${NAME}-${VERSION} on ${HOST}"
+	@echo "sign       sign the RPM and OS X package"
 	@echo "uninstall  uninstall ${NAME} from ${PREFIX}"
 
 rpm: spec buildrpm
@@ -20,18 +23,43 @@ spec: rpm/${NAME}.spec
 rpm/${NAME}.spec: rpm/${NAME}.spec.in
 	cat $< CHANGES | sed -e "s/VERSION/${VERSION}/" >$@
 
-buildrpm:
+build: src/${NAME}
+
+src/${NAME}: src/${NAME}.go
+	go build -o src/${NAME} src/${NAME}.go
+
+buildrpm: packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm
+
+packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm:
 	@rsync -e ssh -avz . ${HOST}:${NAME}/.
-	@ssh ${HOST} "cd ${NAME}/rpm && sh mkrpm.sh ${NAME}.spec"
-	@scp ${HOST}:redhat/RPMS/noarch/${NAME}-${VERSION}-*.rpm /tmp
-	@ls /tmp/${NAME}-${VERSION}*rpm
+	@ssh ${HOST} "cd ${NAME}/src && GOROOT=~/go ~/go/bin/go build jass.go && cd ../rpm && sh mkrpm.sh ${NAME}.spec"
+	@scp ${HOST}:redhat/RPMS/*/${NAME}-${VERSION}-1.x86_64.rpm packages/rpms/
+	@ls packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm
 
-osxpkg: dmg
+osxpkg: build bom archive dmg
 
-dmg: bom archive osx/jass.dmg
+dmg: osx/jass.dmg
 
-osx/jass.dmg:
-	hdiutil create -volname Jass -srcfolder osx/${NAME}.pkg -ov -format UDZO osx/jass.dmg
+osx/${NAME}.dmg: build
+	cp -R osx/${NAME}.pkg osx/${NAME}-${VERSION}.pkg
+	hdiutil create -volname Jass -srcfolder osx/${NAME}-${VERSION}.pkg -ov -format UDZO osx/${NAME}-${VERSION}.dmg
+	cp osx/${NAME}-${VERSION}.dmg packages/dmgs/
+
+osx/${NAME}-${VERSION}.dmg: osx/${NAME}.dmg
+
+sign: osx/${NAME}-${VERSION}.dmg.asc packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm.asc
+
+osx/${NAME}-${VERSION}.dmg.asc: osxpkg
+	gpg -b -a osx/${NAME}-${VERSION}.dmg
+
+packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm.asc: packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm
+	gpg -b -a packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm
+
+release: osx/${NAME}-${VERSION}.dmg.asc packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm.asc
+	cp osx/${NAME}-${VERSION}.dmg osx/${NAME}-${VERSION}.dmg.asc packages/dmgs/.
+	cd packages/dmgs && ln -f ${NAME}-${VERSION}.dmg ${NAME}.dmg
+	cd packages/dmgs && ln -f ${NAME}-${VERSION}.dmg.asc ${NAME}.dmg.asc
+	echo ${VERSION} > packages/version
 
 prep: .prepdone
 
@@ -56,7 +84,7 @@ bom: prep osx/${NAME}.pkg/Contents/Archive.bom
 osx/${NAME}.pkg/Contents/Archive.bom:
 	mkbom osx/dstroot osx/${NAME}.pkg/Contents/Archive.bom
 
-install:
+install: build
 	mkdir -p ${PREFIX}/bin ${PREFIX}/share/man/man1
 	install -c -m 0555 src/${NAME} ${PREFIX}/bin/${NAME}
 	install -c -m 0555 doc/${NAME}.1 ${PREFIX}/share/man/man1/${NAME}.1
@@ -66,8 +94,10 @@ uninstall:
 
 clean:
 	sudo rm -fr ${DSTROOT}
+	rm -f src/jass
 	rm -f .prepdone rpm/${NAME}.spec
-	rm -f osx/${NAME}.dmg osx/.DS_Store
+	rm -f osx/${NAME}.dmg* osx/${NAME}-${VERSION}.dmg* osx/.DS_Store
 	rm -f osx/${NAME}.pkg/Contents/Archive.bom
 	rm -f osx/${NAME}.pkg/Contents/Archive.pax.gz
-	rm -fr osx/${NAME}.pkg/Contents/Resources
+	rm -fr osx/${NAME}.pkg/Contents/Resources osx/${NAME}-${VERSION}.pkg
+	rm -f packages/dmgs/${NAME}.dmg*
