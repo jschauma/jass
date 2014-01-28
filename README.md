@@ -21,7 +21,7 @@ non-SSH related data.
 
 The commands to do this are not very complex, but the combination is
 generally longer than any of us would like to have to remember.  jass(1)
-wraps these commands with a lot of convenience glue and presents a
+implements these commands with a lot of convenience glue and presents a
 simplified user interface to allow for the encryption of data with the
 public ssh keys of the specified recipients, as well as the decryption
 using the given private ssh key.
@@ -29,34 +29,28 @@ using the given private ssh key.
 
 Supported Platforms
 ===================
-jass(1) is written in shell, so it should run pretty much anywhere. It
-currently requires base64(1), ssh-keygen(1), openssl(1), and uuencode(1).
-
-We rely on ssh-keygen(1)'s ability to convert the public ssh key from
-OpenSSH's (effectively) proprietary default format to PKCS8; this feature
-was added in OpenSSH version 5.6.
+jass(1) is written in Go, so it should run pretty much anywhere that you
+can build a binary for.  (An older version of jass(1) written in shell is
+also available in the 'src' directory.)
 
 jass(1) was tested on the following systems:
 
-- CentOS release 5.5
-- FreeBSD 9.1-RELEASE
-- Mac OS X 10.8.3
+- CentOS release 5 and 6
+- Mac OS X 10.9.1
 - NetBSD 6.0.1
-- Ubuntu 13.04 Raring Ringtail
 
 
 How to install jass(1)
 ======================
 jass(1) allows you to query LDAP for ssh keys.  If you are using this
-feature, edit the file src/jass and set the two LDAP* variables near
-the top of the script.
+feature, set the two LDAP* variables noted in the manual page.
 
-
-Just copy the manual page from doc/jass.1 to somewhere in your MANPATH and
-the script src/jass to somewhere in your PATH.
+Just copy the manual page from doc/jass.1 to somewhere in your MANPATH;
+'go build src/jass.go' and copy the resulting binary somewhere in your
+PATH.
 
 The simplistic provided Makefile will copy those files under /usr/local or
-wherever PREFIX points to.
+wherever PREFIX points to if you run 'make install'.
 
 
 How to use jass(1)
@@ -93,28 +87,6 @@ system:
 FAQ
 ===
 
-Why does jass(1) say "Unable to convert ssh key to PKCS8 format."?
-------------------------------------------------------------------
-The command that failed here was:
-
-    ssh-keygen -P '' -f "${pubkey}" -e -m PKCS8
-
-Most likely your version of ssh-keygen(1) does not support conversion to
-PKCS8.  This capability was added in OpenSSH 5.6 -- if your version of
-ssh(1) is less than that, jass(1) will not work.  Check the output of 'ssh
--V' and/or review the manual page for ssh-keygen(1) to ensure it supports
-the '-m PKCS8' flag.
-
-The second option is that you're running on Mac OS X Mavericks.  Their
-version of ssh reports as
-
-    OpenSSH_6.2p2, OSSLShim 0.9.8r 8 Dec 2011
-
-and whatever they did in the OSSLShim appears to have removed the ability
-to convert RSA to PKCS8.  For the time being, on that platform your only
-option is to use a different OpenSSH.
-
-
 Why don't we just use PGP?
 --------------------------
 Why indeed. PGP has many advantages and more widespread use would make
@@ -125,9 +97,9 @@ you and your team a presentation.
 Why does this ask me for my passphrase when decrypting? Can't it get it from my ssh agent?
 ------------------------------------------------------------------------------------------
 Unfortunately the passphrase cannot be retrieved from any running ssh
-agent, since we are not actually using ssh(1) at all. We are using
-openssl(1), which requires the passphrase to use the private key file to
-decrypt the data.
+agent, since we are not actually using ssh(1) at all, we just happen to
+use an ssh key.  If the key is encrypted, then we need to prompt the user
+for the passphrase.
 
 Who wrote this tool?
 --------------------
@@ -137,3 +109,4 @@ April 2013.
 You can read more about it here:
 * http://www.netmeister.org/blog/sharing-secrets-using-ssh-keys.html
 * http://www.netmeister.org/blog/jass.html
+* https://www.netmeister.org/blog/ssh2pkcs8.html
