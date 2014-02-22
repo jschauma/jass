@@ -1,3 +1,17 @@
+* Fri Feb 21 2014 - jschauma@twitter.com
+- 3.0
+-  [SECURITY-11509]: correctly generate fingerprint
+   This introduces an incompatibility between version 2.1/2.2 and this
+   version, which did not correctly generate a fingerprint for ssh pubkeys
+   with a small exponent.
+
+* Thu Jan 30 2014 - jschauma@twitter.com
+- 2.2:
+-  [SECURITY-11290]: re-introduce backwards compatibility with username-fp
+   format
+-  sort cap options properly
+-  re-add "-f" description into usage
+
 * Mon Jan 27 2014 - jschauma@twitter.com
 - 2.1
 -  remove dependencies on openssl(1) and ssh-keygen(1) altogether by

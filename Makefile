@@ -9,6 +9,7 @@ help:
 	@echo "The following targets are available:"
 	@echo "build      build the executable"
 	@echo "clean      remove temporary build files"
+	@echo "dottools   upload/install binaries to ${HOST} for dottools"
 	@echo "install    install ${NAME} into ${PREFIX}"
 	@echo "osxpkg     create an OS X package of ${NAME}-${VERSION}"
 	@echo "release    get everything ready for a new release"
@@ -30,11 +31,15 @@ src/${NAME}: src/${NAME}.go
 
 buildrpm: packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm
 
-packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm:
-	@rsync -e ssh -avz . ${HOST}:${NAME}/.
-	@ssh ${HOST} "cd ${NAME}/src && GOROOT=~/go ~/go/bin/go build jass.go && cd ../rpm && sh mkrpm.sh ${NAME}.spec"
-	@scp ${HOST}:redhat/RPMS/*/${NAME}-${VERSION}-1.x86_64.rpm packages/rpms/
-	@ls packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm
+linux_binary:
+	rsync -e ssh -avz --exclude osx/ --exclude packages/ --exclude .git/ . ${HOST}:${NAME}/.
+	ssh ${HOST} "cd ${NAME}/src && GOROOT=~/go ~/go/bin/go build jass.go"
+
+packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm: linux_binary
+	rsync -e ssh -avz . ${HOST}:${NAME}/.
+	ssh ${HOST} "cd ${NAME}/rpm && sh mkrpm.sh ${NAME}.spec"
+	scp ${HOST}:redhat/RPMS/*/${NAME}-${VERSION}-1.x86_64.rpm packages/rpms/
+	ls packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm
 
 osxpkg: build bom archive dmg
 
@@ -60,6 +65,12 @@ release: osx/${NAME}-${VERSION}.dmg.asc packages/rpms/${NAME}-${VERSION}-1.x86_6
 	cd packages/dmgs && ln -f ${NAME}-${VERSION}.dmg ${NAME}.dmg
 	cd packages/dmgs && ln -f ${NAME}-${VERSION}.dmg.asc ${NAME}.dmg.asc
 	echo ${VERSION} > packages/version
+
+dottools: src/${NAME}-dottools-wrapper src/${NAME} linux_binary
+	ssh ${HOST} "cp ${NAME}/src/${NAME} tools/${NAME}/bin/${NAME}.Linux"
+	scp src/${NAME} ${HOST}:tools/${NAME}/bin/${NAME}.Darwin
+	scp src/${NAME}-dottools-wrapper ${HOST}:tools/${NAME}/bin/${NAME}
+	scp doc/${NAME}.1 ${HOST}:tools/${NAME}/man/man1/.
 
 prep: .prepdone
 

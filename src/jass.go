@@ -43,12 +43,12 @@ import (
 Set these two variables to match your use of LDAP for ssh keys, if any.
 Note: jass works perfectly fine without the use of LDAP.
 
-var LDAPFIELD = "SSHPubkey"
-var LDAPSEARCH = "ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com"
-
-*/
 var LDAPFIELD = ""
 var LDAPSEARCH = ""
+
+*/
+var LDAPFIELD = "twSSHPubkey"
+var LDAPSEARCH = "ldapsearch -LLLxh ldap.local.twitter.com -b dc=ods,dc=twitter,dc=corp"
 
 /* You should not need to make any changes below this line. */
 
@@ -59,7 +59,7 @@ const MAX_COLUMNS = 76
 const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "2.1"
+const VERSION = "3.0"
 
 var ACTION = "encrypt"
 
@@ -408,9 +408,9 @@ func getFingerPrint(pubkey rsa.PublicKey) (fp string) {
 	b.Write([]byte("ssh-rsa"))
 
 	/* exponent */
-	b.Write([]byte{0, 0, 0, 3})
 	x := new(big.Int)
 	x.SetString(fmt.Sprintf("%d", pubkey.E), 0)
+	b.Write([]byte{0, 0, 0, byte(len(x.Bytes()))})
 	b.Write(x.Bytes())
 
 	/* modulus */
@@ -703,15 +703,14 @@ func getpass(prompt string) (pass []byte) {
 func identifyCorrectSessionKeyData(privfp string, keys map[string]string) (skey []byte) {
 	verbose("Identifying correct session key data...", 2)
 
+	/* fingerprints may be "user-fi:ng:er:pr:in:t" or "fi:ng:er:pr:in:t" */
+	fp_pattern := regexp.MustCompile("^([^-]+-)?(?P<fp>[a-f0-9:]+)")
+
 	for r, key := range keys {
-		/* recipients are 'foo-fi:ng:er:pr:in:t' */
-		n := strings.Index(r, "-") + 1
-		if n > 0 {
-			fp := r[n:]
-			if fp == privfp {
-				skey = decode(key)
-				break
-			}
+		fp := fp_pattern.FindStringSubmatch(r)[2]
+		if fp == privfp {
+			skey = decode(key)
+			break
 		}
 	}
 
@@ -1000,11 +999,12 @@ func unpadBuffer(buf []byte) (unpadded []byte) {
 
 
 func usage(out io.Writer) {
-	usage := `Usage: %v [-VGdehv] [-g group] [-k key] [-u user]
-	-V        print version information and exit
+	usage := `Usage: %v [-GVdehv] [-f file] [-g group] [-k key] [-u user]
 	-G        search for user keys on GitHub
+	-V        print version information and exit
 	-d        decrypt
 	-e        encrypt (default)
+	-f file   Encrypt/decrypt file (default: stdin)
 	-g group  encrypt for members of this group
 	-h        print this help and exit
 	-k key    encrypt using this public key file

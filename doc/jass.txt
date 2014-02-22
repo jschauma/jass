@@ -4,7 +4,7 @@ NAME
      jass -- just another secret sharer
 
 SYNOPSIS
-     jass [-EGVdehv] [-f file] [-g group] [-k key] [-u user]
+     jass [-GVdehv] [-f file] [-g group] [-k key] [-u user]
 
 DESCRIPTION
      The jass tool allows you to share a secret with other people through the
@@ -14,11 +14,9 @@ DESCRIPTION
 OPTIONS
      The following options are supported by jass:
 
-     -E	       Expert mode.  This may skip certain compatibility tests.
+     -G	       Also look for public keys on GitHub.
 
      -V	       Print version number and exit.
-
-     -G	       Also look for public keys on GitHub.
 
      -e	       Perform encryption.  This is the default.
 
@@ -41,15 +39,14 @@ OPTIONS
 DETAILS
      It is not uncommon for people within a given organization to have a need
      to share secrets with one another.	 jass lets you do this through the use
-     of SSH keys, as those are frequently already well distributed and trusted
-     in many places.
+     of SSH RSA keys, as those are frequently already well distributed and
+     trusted.
 
-     In particular, jass will convert the given public keys into PKCS8 format,
-     allowing it to be used with openssl(1)'s rsautl(1) utility.  Since asym-
-     metric encryption is only suitable for inputs smaller than the keysize,
-     jass will then generate a 256 bit session key.  This session key is
-     encrypted using the user's public key, while the data itself is encrypted
-     using AES-256-CBC mode with said session key.
+     Since asymmetric encryption is only suitable for inputs smaller than the
+     keysize, jass will extract the public RSA key from an SSH formatted key,
+     generate a 256 bit session key, and then encrypt the session key using
+     the public RSA key.  The data itself is encrypted using AES-256-CBC mode
+     with said session key.
 
      As an alternative to providing a public key, a recipient may also be
      specified via the -g and -u flags.	 If -g was specified, jass will expand
@@ -90,19 +87,9 @@ EXAMPLES
 
 	   jass -u jschauma -f service.yml >service.yml.enc
 
-     This command differs from the previous examples in that the name of the
-     input file is encoded in the output, allowing the recipient to restore
-     the file directly:
-
-	   $ jass -d -k ~/.ssh/id_rsa -f service.yml.enc
-	   Enter pass phrase for /home/jschauma/.ssh/id_rsa:
-	   $ ls
-	   service.yml
-	   $
-
      To encrypt data for multiple recipients:
 
-	     jass -u user1 -u user2 -u user3 <data
+	   jass -u user1 -u user2 -u user3 <data
 
 ENVIRONMENT
      When attempting to query LDAP for public keys, jass will require the
@@ -116,13 +103,13 @@ ENVIRONMENT
      LDAPSEARCH	  ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
 
 SEE ALSO
-     openssl(1), ssh-keygen(1)
+     enc(1), openssl(1), rsautl(1), ssh-keygen(1)
 
 BUGS
      jass will only allow RSA keys.
 
      jass assumes the public SSH key to be in OpenSSH's default format; if the
-     public key is in another format, it may break.
+     public key is in another format, it will fail.
 
      jass will not accept private SSH keys in PEM format when decrypting.
 
@@ -130,4 +117,4 @@ HISTORY
      jass was originally written by Jan Schaumann <jschauma@twitter.com> in
      April 2013.
 
-NetBSD 5.0		       December 12, 2013		    NetBSD 5.0
+NetBSD 5.0		       December 31, 2013		    NetBSD 5.0
