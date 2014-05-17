@@ -46,6 +46,8 @@ Note: jass works perfectly fine without the use of LDAP.
 var LDAPFIELD = "SSHPubkey"
 var LDAPSEARCH = "ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com"
 */
+var LDAPFIELD = ""
+var LDAPSEARCH = ""
 
 /* You should not need to make any changes below this line. */
 
