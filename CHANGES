@@ -1,3 +1,7 @@
+* Thu May 15 2014 - jschauma@twitter.com
+- 3.0.1
+-  [SECURITY-12394]: call /bin/stty instead of relying on the PATH
+
 * Fri Feb 21 2014 - jschauma@twitter.com
 - 3.0
 -  [SECURITY-11509]: correctly generate fingerprint

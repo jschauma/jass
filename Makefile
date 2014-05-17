@@ -1,7 +1,10 @@
 NAME=jass
 VERSION=$(shell sed -n -e 's/^const VERSION = "\(.*\)"/\1/p' src/jass.go)
+RPMREV=$(shell awk '/%define release/ { print $$3;}' rpm/jass.spec.in)
 
-HOST="buildhost"
+.PHONY: test
+
+HOST="opsnest1"
 DSTROOT=osx/dstroot
 PREFIX?=/usr/local
 
@@ -13,8 +16,9 @@ help:
 	@echo "install    install ${NAME} into ${PREFIX}"
 	@echo "osxpkg     create an OS X package of ${NAME}-${VERSION}"
 	@echo "release    get everything ready for a new release"
-	@echo "rpm        build an RPM of ${NAME}-${VERSION} on ${HOST}"
+	@echo "rpm        build an RPM of ${NAME}-${VERSION}-${RPMREV} on ${HOST}"
 	@echo "sign       sign the RPM and OS X package"
+	@echo "test       run all tests under tests/"
 	@echo "uninstall  uninstall ${NAME} from ${PREFIX}"
 
 rpm: spec buildrpm
@@ -29,17 +33,17 @@ build: src/${NAME}
 src/${NAME}: src/${NAME}.go
 	go build -o src/${NAME} src/${NAME}.go
 
-buildrpm: packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm
+buildrpm: packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm
 
 linux_binary:
 	rsync -e ssh -avz --exclude osx/ --exclude packages/ --exclude .git/ . ${HOST}:${NAME}/.
 	ssh ${HOST} "cd ${NAME}/src && GOROOT=~/go ~/go/bin/go build jass.go"
 
-packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm: linux_binary
+packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm: linux_binary
 	rsync -e ssh -avz . ${HOST}:${NAME}/.
 	ssh ${HOST} "cd ${NAME}/rpm && sh mkrpm.sh ${NAME}.spec"
-	scp ${HOST}:redhat/RPMS/*/${NAME}-${VERSION}-1.x86_64.rpm packages/rpms/
-	ls packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm
+	scp ${HOST}:redhat/RPMS/*/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm packages/rpms/
+	ls packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm
 
 osxpkg: build bom archive dmg
 
@@ -52,15 +56,15 @@ osx/${NAME}.dmg: build
 
 osx/${NAME}-${VERSION}.dmg: osx/${NAME}.dmg
 
-sign: osx/${NAME}-${VERSION}.dmg.asc packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm.asc
+sign: osx/${NAME}-${VERSION}.dmg.asc packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm.asc
 
 osx/${NAME}-${VERSION}.dmg.asc: osxpkg
 	gpg -b -a osx/${NAME}-${VERSION}.dmg
 
-packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm.asc: packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm
-	gpg -b -a packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm
+packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm.asc: packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm
+	gpg -b -a packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm
 
-release: osx/${NAME}-${VERSION}.dmg.asc packages/rpms/${NAME}-${VERSION}-1.x86_64.rpm.asc
+release: osx/${NAME}-${VERSION}.dmg.asc packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm.asc
 	cp osx/${NAME}-${VERSION}.dmg osx/${NAME}-${VERSION}.dmg.asc packages/dmgs/.
 	cd packages/dmgs && ln -f ${NAME}-${VERSION}.dmg ${NAME}.dmg
 	cd packages/dmgs && ln -f ${NAME}-${VERSION}.dmg.asc ${NAME}.dmg.asc
@@ -102,6 +106,11 @@ install: build
 
 uninstall:
 	rm -f ${PREFIX}/bin/${NAME} ${PREFIX}/share/man/man1/${NAME}.1
+
+test:
+	@cd tests && for t in *.sh; do			\
+		sh $${t};				\
+	done
 
 clean:
 	sudo rm -fr ${DSTROOT}

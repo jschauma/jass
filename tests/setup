@@ -1,0 +1,38 @@
+JASS=../src/jass
+
+MSG="Toads on toast"
+
+TDIR="$(mktemp -d ${TMPDIR:-/tmp}/jass.test.XXXX)"
+STDERR="${TDIR}/stderr"
+
+if [ ! -x ${JASS} ]; then
+	echo "${JASS} not found.  Please run 'make build' first." >&2
+	exit 1
+fi
+
+alias ldaps='ldapsearch -LLLxh ldap.local.twitter.com -b dc=ods,dc=twitter,dc=corp'
+
+begin() {
+	echo "=> Now testing: ${NAME}..."
+}
+
+cleanup() {
+	rm -fr ${TDIR}
+}
+
+note() {
+	echo "==> ${1}"
+}
+
+end() {
+	echo "=> ok"
+}
+
+fail() {
+	echo "=> failed."
+	echo "Stderr follows:"
+	cat ${STDERR}
+	exit 1
+}
+
+trap cleanup 0

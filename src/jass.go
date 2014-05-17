@@ -43,12 +43,9 @@ import (
 Set these two variables to match your use of LDAP for ssh keys, if any.
 Note: jass works perfectly fine without the use of LDAP.
 
-var LDAPFIELD = ""
-var LDAPSEARCH = ""
-
+var LDAPFIELD = "SSHPubkey"
+var LDAPSEARCH = "ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com"
 */
-var LDAPFIELD = "twSSHPubkey"
-var LDAPSEARCH = "ldapsearch -LLLxh ldap.local.twitter.com -b dc=ods,dc=twitter,dc=corp"
 
 /* You should not need to make any changes below this line. */
 
@@ -59,7 +56,7 @@ const MAX_COLUMNS = 76
 const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "3.0"
+const VERSION = "3.0.1"
 
 var ACTION = "encrypt"
 
@@ -977,7 +974,7 @@ func stty(arg string) {
 		flag = "-F"
 	}
 
-	err := exec.Command("stty", flag, "/dev/tty", arg).Run()
+	err := exec.Command("/bin/stty", flag, "/dev/tty", arg).Run()
 	if err != nil {
 		fail(fmt.Sprintf("Unable to run stty on /dev/tty: %v\n", err))
 	}
