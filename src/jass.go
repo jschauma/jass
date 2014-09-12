@@ -45,6 +45,7 @@ Note: jass works perfectly fine without the use of LDAP.
 
 var LDAPFIELD = "SSHPubkey"
 var LDAPSEARCH = "ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com"
+
 */
 var LDAPFIELD = ""
 var LDAPSEARCH = ""
@@ -58,7 +59,7 @@ const MAX_COLUMNS = 76
 const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "3.0.1"
+const VERSION = "3.0.2"
 
 var ACTION = "encrypt"
 
@@ -783,10 +784,7 @@ func parseEncryptedInput() (message string, keys map[string]string, version stri
 			n++
 			field = begin_re.FindStringSubmatch(string(data))[1]
 			switch {
-			/* The first uuencoded data chunk is the
-			 * encrypted message, but the field name may just be
-			 * a file name, so we can't match on "message". */
-			case n == 1:
+			case field == "message":
 				encoded = &message
 			case field == "version":
 				encoded = &version
@@ -887,7 +885,7 @@ func sshToPubkey(key string) (pubkey SSHKey) {
 	 * RSA pattern, then that field must be the actual key.  This
 	 * would be a false assumption if one of the comments or options
 	 * contained that same pattern, but anybody who creates such a key
-	 * can fo screw themselves. */
+	 * can go screw themselves. */
 	i:= strings.Index(key, OPENSSH_RSA_KEY_SUBSTRING)
 	if i < 0 {
 		fmt.Fprintf(os.Stderr, "Not an ssh RSA public key: '%v'\n", key)
