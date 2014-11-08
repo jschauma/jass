@@ -1,3 +1,8 @@
+* Wed Sep 24 2014 - jschauma@twitter.com
+- 3.0.3
+-  [SECURITY-14609]: accept encrypted input with spurious whitespace
+-  clarify that '-k' can be used for decryption as well
+
 * Fri Sep 12 2014 - jschauma@twitter.com
 - 3.0.2
 -  [SECURITY-14355]: better detect when input is garbled

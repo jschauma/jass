@@ -29,7 +29,7 @@ OPTIONS
 
      -h	       Print a short help message and exit.
 
-     -k key    Encrypt the input using the keys found in key.
+     -k key    Encrypt or decrypt the input using the key(s) found in key.
 
      -u user   Encrypt the input for this user, attempting to find suitable
 	       public SSH keys on the local system or from LDAP.
@@ -117,4 +117,4 @@ HISTORY
      jass was originally written by Jan Schaumann <jschauma@twitter.com> in
      April 2013.
 
-NetBSD 5.0		       December 31, 2013		    NetBSD 5.0
+NetBSD 5.0		      September 23, 2014		    NetBSD 5.0

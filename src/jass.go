@@ -59,7 +59,7 @@ const MAX_COLUMNS = 76
 const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "3.0.2"
+const VERSION = "3.0.3"
 
 var ACTION = "encrypt"
 
@@ -749,8 +749,8 @@ func padBuffer(buf []byte) (padded []byte) {
 func parseEncryptedInput() (message string, keys map[string]string, version string) {
 	verbose("Parsing encrypted input...", 2)
 
-	begin_re := regexp.MustCompile("^begin-base64 600 (?P<name>[^ ]+)\n")
-	end_re := regexp.MustCompile("^====\n")
+	begin_re := regexp.MustCompile("^begin-base64 600 (?P<name>[^ ]+)")
+	end_re := regexp.MustCompile("^====")
 
 	keys = make(map[string]string)
 
@@ -775,14 +775,15 @@ func parseEncryptedInput() (message string, keys map[string]string, version stri
 		data, err := input.ReadBytes('\n')
 		if err != nil {
 			if err != io.EOF {
-			fmt.Fprintf(os.Stderr, "Unable to read input: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Unable to read input: %v\n", err)
 			}
 			break
 		}
 
-		if begin_re.MatchString(string(data)) {
+		line := strings.TrimSpace(string(data))
+		if begin_re.MatchString(line) {
 			n++
-			field = begin_re.FindStringSubmatch(string(data))[1]
+			field = begin_re.FindStringSubmatch(line)[1]
 			switch {
 			case field == "message":
 				encoded = &message
@@ -791,7 +792,7 @@ func parseEncryptedInput() (message string, keys map[string]string, version stri
 			default:
 				encoded = &key
 			}
-		} else if end_re.MatchString(string(data)) {
+		} else if end_re.MatchString(line) {
 			if encoded == &key {
 				keys[field] = *encoded
 				key = ""
@@ -799,7 +800,7 @@ func parseEncryptedInput() (message string, keys map[string]string, version stri
 			encoded = &garbage
 			continue
 		} else {
-			*encoded += strings.TrimSpace(string(data))
+			*encoded += line
 		}
 	}
 	fd.Close()
