@@ -96,8 +96,8 @@ you and your team a presentation.
 
 Why does this ask me for my passphrase when decrypting? Can't it get it from my ssh agent?
 ------------------------------------------------------------------------------------------
-Unfortunately the passphrase cannot be retrieved from any running ssh
-agent, since we are not actually using ssh(1) at all, we just happen to
+Unfortunately the key available in any possible ssh agent cannot be used
+by jass(1), since we are not actually using ssh(1) at all: we just happen to
 use an ssh key.  If the key is encrypted, then we need to prompt the user
 for the passphrase.
 
