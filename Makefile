@@ -37,10 +37,9 @@ buildrpm: packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm
 
 linux_binary:
 	rsync -e ssh -avz --exclude osx/ --exclude packages/ --exclude .git/ . ${HOST}:${NAME}/.
-	ssh ${HOST} "cd ${NAME}/src && GOROOT=~/go ~/go/bin/go build jass.go"
+	ssh ${HOST} "cd ${NAME}/src && rm -f ${NAME} && GOROOT=~/go ~/go/bin/go build jass.go"
 
-packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm: linux_binary
-	rsync -e ssh -avz . ${HOST}:${NAME}/.
+packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm: spec linux_binary
 	ssh ${HOST} "cd ${NAME}/rpm && sh mkrpm.sh ${NAME}.spec"
 	scp ${HOST}:redhat/RPMS/*/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm packages/rpms/
 	ls packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm
@@ -64,10 +63,12 @@ osx/${NAME}-${VERSION}.dmg.asc: osxpkg
 packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm.asc: packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm
 	gpg -b -a packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm
 
-release: osx/${NAME}-${VERSION}.dmg.asc packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm.asc
+release: version osx/${NAME}-${VERSION}.dmg.asc packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm.asc
 	cp osx/${NAME}-${VERSION}.dmg osx/${NAME}-${VERSION}.dmg.asc packages/dmgs/.
 	cd packages/dmgs && ln -f ${NAME}-${VERSION}.dmg ${NAME}.dmg
 	cd packages/dmgs && ln -f ${NAME}-${VERSION}.dmg.asc ${NAME}.dmg.asc
+
+version:
 	echo ${VERSION} > packages/version
 
 dottools: src/${NAME}-dottools-wrapper src/${NAME} linux_binary
@@ -91,13 +92,13 @@ prep: .prepdone
 archive: prep osx/${NAME}.pkg/Contents/Archive.pax.gz
 
 osx/${NAME}.pkg/Contents/Archive.pax.gz:
-	cd osx/dstroot && pax -w -x cpio . -f ../${NAME}.pkg/Contents/Archive.pax
+	cd ${DSTROOT} && pax -w -x cpio . -f ../${NAME}.pkg/Contents/Archive.pax
 	gzip osx/${NAME}.pkg/Contents/Archive.pax
 
 bom: prep osx/${NAME}.pkg/Contents/Archive.bom
 
 osx/${NAME}.pkg/Contents/Archive.bom:
-	mkbom osx/dstroot osx/${NAME}.pkg/Contents/Archive.bom
+	mkbom ${DSTROOT} osx/${NAME}.pkg/Contents/Archive.bom
 
 install: build
 	mkdir -p ${PREFIX}/bin ${PREFIX}/share/man/man1
@@ -107,14 +108,14 @@ install: build
 uninstall:
 	rm -f ${PREFIX}/bin/${NAME} ${PREFIX}/share/man/man1/${NAME}.1
 
-test:
+test: src/${NAME}
 	@cd tests && for t in *.sh; do			\
 		sh $${t};				\
 	done
 
 clean:
 	sudo rm -fr ${DSTROOT}
-	rm -f src/jass
+	rm -f src/${NAME}
 	rm -f .prepdone rpm/${NAME}.spec
 	rm -f osx/${NAME}.dmg* osx/${NAME}-${VERSION}.dmg* osx/.DS_Store
 	rm -f osx/${NAME}.pkg/Contents/Archive.bom
