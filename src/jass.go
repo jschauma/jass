@@ -1,4 +1,4 @@
- /*
+/*
  * Copyright (c) 2013, Twitter. Inc
  *
  * Originally written by Jan Schaumann <jschauma@twitter.com> in April
@@ -1017,7 +1017,7 @@ func usage(out io.Writer) {
 	-h        print this help and exit
 	-k key    encrypt using this public key file
 	-u user   encrypt for this user
-    -p passphrase passphrase for the private key
+	-p passphrase passphrase for the private key
 	-v        be verbose
 `
 	fmt.Fprintf(out, usage, PROGNAME)
