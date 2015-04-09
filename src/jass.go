@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright (c) 2013, Twitter. Inc
  *
  * Originally written by Jan Schaumann <jschauma@twitter.com> in April
@@ -65,6 +65,7 @@ var ACTION = "encrypt"
 
 var FILES []string
 var KEY_FILES = map[string]bool{}
+var PASSPHRASE string
 
 type SSHKey struct {
 	Key rsa.PublicKey
@@ -588,7 +589,12 @@ func getRSAKeyFromSSHFile(keyFile string) (key *rsa.PrivateKey) {
 	keyBytes := block.Bytes
 	if strings.Contains(string(pemData), "Proc-Type: 4,ENCRYPTED") {
 
-		password := getpass(fmt.Sprintf("Enter pass phrase for %s: ", keyFile))
+        var password []byte
+        if len(PASSPHRASE) > 0 {
+            password = []byte(PASSPHRASE)
+        } else {
+            password = getpass(fmt.Sprintf("Enter pass phrase for %s: ", keyFile))
+        }
 		keyBytes, err = x509.DecryptPEMBlock(block, password)
 		if err != nil {
 			fail(fmt.Sprintf("Unable to decrypt private key: %v\n", err))
@@ -656,6 +662,10 @@ func getopts() {
 			eatit = true
 			argcheck("-u", args, i)
 			RECIPIENTS[args[i+1]] = make([]string, 0)
+		case "-p":
+			eatit = true
+			argcheck("-p", args, i)
+			PASSPHRASE = args[i+1]
 		case "-v":
 			VERBOSITY++
 		default:
@@ -997,7 +1007,7 @@ func unpadBuffer(buf []byte) (unpadded []byte) {
 
 
 func usage(out io.Writer) {
-	usage := `Usage: %v [-GVdehv] [-f file] [-g group] [-k key] [-u user]
+	usage := `Usage: %v [-GVdehv] [-f file] [-g group] [-k key] [-u user] [-p passphrase]
 	-G        search for user keys on GitHub
 	-V        print version information and exit
 	-d        decrypt
@@ -1007,6 +1017,7 @@ func usage(out io.Writer) {
 	-h        print this help and exit
 	-k key    encrypt using this public key file
 	-u user   encrypt for this user
+    -p passphrase passphrase for the private key
 	-v        be verbose
 `
 	fmt.Fprintf(out, usage, PROGNAME)
