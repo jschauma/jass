@@ -47,6 +47,12 @@ Print a short help message and exit.
 .It Fl k Ar key
 Encrypt or decrypt the input using the key(s) found in
 .Ar key .
+.It Fl p
+Passphrase from a variety of sources - pass:passphrase file:filename env:envvar.
+Similar to openssl(1) -passin.
+If no password argument is given and a password is required then the user is
+prompted to enter one:this will typically be read from the current terminal
+with echoing turned off.
 .It Fl u Ar user
 Encrypt the input for this user, attempting to find suitable public SSH
 keys on the local system or from LDAP.
