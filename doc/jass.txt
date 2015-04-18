@@ -1,11 +1,10 @@
-
 JASS(1) 		  BSD General Commands Manual		       JASS(1)
 
 NAME
-     jass — just another secret sharer
+     jass -- just another secret sharer
 
 SYNOPSIS
-     jass [−GVdehv] [−f file] [−g group] [−k key] [−u user]
+     jass [-GVdehv] [-f file] [-g group] [-k key] [-u user]
 
 DESCRIPTION
      The jass tool allows you to share a secret with other people through the
@@ -15,33 +14,33 @@ DESCRIPTION
 OPTIONS
      The following options are supported by jass:
 
-     −G        Also look for public keys on GitHub.
+     -G        Also look for public keys on GitHub.
 
-     −V        Print version number and exit.
+     -V        Print version number and exit.
 
-     −e        Perform encryption.  This is the default.
+     -e        Perform encryption.  This is the default.
 
-     −d        Perform decryption.
+     -d        Perform decryption.
 
-     −f file   Encrypt/decrypt this file.  If not specified, jass will read
+     -f file   Encrypt/decrypt this file.  If not specified, jass will read
 	       data from stdin.
 
-     −g group  Encrypt for all members of this group.
+     -g group  Encrypt for all members of this group.
 
-     −h        Print a short help message and exit.
+     -h        Print a short help message and exit.
 
-     −k key    Encrypt or decrypt the input using the key(s) found in key.
+     -k key    Encrypt or decrypt the input using the key(s) found in key.
 
-     −p        Passphrase from a variety of sources ‐ pass:passphrase
-	       file:filename env:envvar.  Similar to openssl(1) ‐passin.  If
+     -p        Passphrase from a variety of sources - pass:passphrase
+	       file:filename env:envvar.  Similar to openssl(1) -passin.  If
 	       no password argument is given and a password is required then
-	       the user is prompted to enter one:this will typically be read
+	       the user is prompted to enter one: this will typically be read
 	       from the current terminal with echoing turned off.
 
-     −u user   Encrypt the input for this user, attempting to find suitable
+     -u user   Encrypt the input for this user, attempting to find suitable
 	       public SSH keys on the local system or from LDAP.
 
-     −v        Be verbose.  Can be specified multiple times.
+     -v        Be verbose.  Can be specified multiple times.
 
 DETAILS
      It is not uncommon for people within a given organization to have a need
@@ -52,17 +51,17 @@ DETAILS
      Since asymmetric encryption is only suitable for inputs smaller than the
      keysize, jass will extract the public RSA key from an SSH formatted key,
      generate a 256 bit session key, and then encrypt the session key using
-     the public RSA key.  The data itself is encrypted using AES‐256‐CBC mode
+     the public RSA key.  The data itself is encrypted using AES-256-CBC mode
      with said session key.
 
      As an alternative to providing a public key, a recipient may also be
-     specified via the −g and −u flags.  If −g was specified, jass will expand
+     specified via the -g and -u flags.  If -g was specified, jass will expand
      the given group to individual users.  For each user, jass will first look
-     for that user’s ~/.ssh/authorized_keys file, then the file
+     for that user's ~/.ssh/authorized_keys file, then the file
      /etc/ssh/authorized_keys/<user>.  If neither of these is readable, it
-     will look for the field ’twSSHPubkey’ for the given username in LDAP.  If
+     will look for the field 'twSSHPubkey' for the given username in LDAP.  If
      a usable pubkey was still not found, jass may then look for a key on the
-     internet, for example on GitHub if the −G flag was specified.
+     internet, for example on GitHub if the -G flag was specified.
 
      Eventually, jass will attempt to encrypt the data for each of the public
      keys found.
@@ -70,33 +69,33 @@ DETAILS
      The output from jass consists of several uuencode(1)ed files.  The first
      is the encrypted message, the following files the session key encrypted
      for each of the public keys.  jass will properly extract, decode and use
-     these when the −d flag is specified, though it should be noted that the
+     these when the -d flag is specified, though it should be noted that the
      decrypted session key briefly lives on the disk in a temporary directory.
 
 EXAMPLES
-     To generate a secret message encrypted with the file ’bobs_pubkey’ and
-     store it in the file ’secret’:
+     To generate a secret message encrypted with the file 'bobs_pubkey' and
+     store it in the file 'secret':
 
 	   echo "The ostrich has left the savannah." | \
-		   jass ‐e ‐k bobs_pubkey > secret
+		   jass -e -k bobs_pubkey > secret
 
-     To send a secret message to ’jschauma’:
+     To send a secret message to 'jschauma':
 
-	   echo "The lion sleeps." | jass ‐u jschauma |  \
-		   mail ‐s "Nothing to see here" jschauma
+	   echo "The lion sleeps." | jass -u jschauma |  \
+		   mail -s "Nothing to see here" jschauma
 
      To decrypt a secret message generated by jass using the private ssh key
-     found in ’my_privkey’:
+     found in 'my_privkey':
 
-	   jass ‐d ‐k my_privkey < secret
+	   jass -d -k my_privkey < secret
 
-     To encrypt the file service.yml for the user ’jschauma’:
+     To encrypt the file service.yml for the user 'jschauma':
 
-	   jass ‐u jschauma ‐f service.yml >service.yml.enc
+	   jass -u jschauma -f service.yml >service.yml.enc
 
      To encrypt data for multiple recipients:
 
-	   jass ‐u user1 ‐u user2 ‐u user3 <data
+	   jass -u user1 -u user2 -u user3 <data
 
 ENVIRONMENT
      When attempting to query LDAP for public keys, jass will require the
@@ -107,21 +106,21 @@ ENVIRONMENT
 
      LDAPFIELD	  SSHPubkey
 
-     LDAPSEARCH   ldapsearch ‐LLLxh ldap.yourdomain.com ‐b dc=example,dc=com
+     LDAPSEARCH   ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
 
 SEE ALSO
-     enc(1), openssl(1), rsautl(1), ssh‐keygen(1)
+     enc(1), openssl(1), rsautl(1), ssh-keygen(1)
 
 BUGS
      jass will only allow RSA keys.
 
-     jass assumes the public SSH key to be in OpenSSH’s default format; if the
+     jass assumes the public SSH key to be in OpenSSH's default format; if the
      public key is in another format, it will fail.
 
      jass will not accept private SSH keys in PEM format when decrypting.
 
 HISTORY
-     jass was originally written by Jan Schaumann ⟨jschauma@twitter.com⟩ in
+     jass was originally written by Jan Schaumann <jschauma@twitter.com> in
      April 2013.
 
 BSD			      September 23, 2014			   BSD
