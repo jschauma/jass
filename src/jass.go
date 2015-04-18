@@ -736,7 +736,13 @@ func getpass(prompt string) (pass []byte) {
 			}
 
 		case "env":
-			return []byte(os.Getenv(passphrase[1]))
+			password := os.Getenv(passphrase[1])
+			if len(password) < 1 {
+				fmt.Fprintf(os.Stderr, "Environment variable %v not set\n", passphrase[1])
+				os.Exit(EXIT_FAILURE)
+			} else {
+				return []byte(password)
+			}
 
 		default:
 			fmt.Fprintf(os.Stderr, error_message)
