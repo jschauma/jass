@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd September 23, 2014
+.Dd April 20, 2014
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -14,6 +14,7 @@
 .Op Fl f Ar file
 .Op Fl g Ar group
 .Op Fl k Ar key
+.Op Fl p Ar passin
 .Op Fl u Ar user
 .Sh DESCRIPTION
 The
@@ -25,7 +26,7 @@ for the given key or user.
 .Sh OPTIONS
 The following options are supported by
 .Nm :
-.Bl -tag -width _u_user_
+.Bl -tag -width _p_passin_
 .It Fl G
 Also look for public keys on GitHub.
 .It Fl V
@@ -47,12 +48,12 @@ Print a short help message and exit.
 .It Fl k Ar key
 Encrypt or decrypt the input using the key(s) found in
 .Ar key .
-.It Fl p
-Passphrase from a variety of sources - pass:passphrase file:filename env:envvar.
-Similar to openssl(1) -passin.
-If no password argument is given and a password is required then the user is
-prompted to enter one: this will typically be read from the current terminal
-with echoing turned off.
+.It Fl p Ar passin
+Specify the method to retrieve the passphrase for the private key.
+See
+.Xr "PASS PHRASE ARGUMENTS"
+for details.
+Defaults to interactively prompt on the controlling tty.
 .It Fl u Ar user
 Encrypt the input for this user, attempting to find suitable public SSH
 keys on the local system or from LDAP.
@@ -114,6 +115,30 @@ will properly extract, decode and use these when the
 .Fl d
 flag is specified, though it should be noted that the decrypted session
 key briefly lives on the disk in a temporary directory.
+.Sh PASS PHRASE ARGUMENTS
+.Nm
+allows you to specify the passphrase for your private key via one of the
+following methods.
+Please note that doing so carries certain risks, and you should carefully
+evaluate what may be the best option for you.
+.Bl -tag -width pass_password_
+.It \fBpass:password\fR
+The actual password is \fBpassword\fR.
+Since the password is visible to utilities such as
+.Xr ps 1
+this form should only be used where security is not important.
+.It \fBenv:var\fR
+Obtain the password from the environment variable \fBvar\fR.
+Since the environment of other processes may be visible via e.g.
+.Xr ps 1 m
+this option should be used with caution.
+.It \fBfile:pathname\fR
+The first line of \fBpathname\fR is the password.
+\fBpathname\fR need not refer to a regular file: it could for example
+refer to a device or named pipe.
+Note that standard Unix file access controls should be used to protect
+this file.
+.El
 .Sh EXAMPLES
 To generate a secret message encrypted with the file 'bobs_pubkey' and
 store it in the file 'secret':

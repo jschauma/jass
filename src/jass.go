@@ -65,7 +65,7 @@ var ACTION = "encrypt"
 
 var FILES []string
 var KEY_FILES = map[string]bool{}
-var PASSPHRASE string
+var PASSIN string
 
 type SSHKey struct {
 	Key rsa.PublicKey
@@ -661,7 +661,7 @@ func getopts() {
 		case "-p":
 			eatit = true
 			argcheck("-p", args, i)
-			PASSPHRASE = args[i+1]
+			PASSIN = args[i+1]
 		case "-v":
 			VERBOSITY++
 		default:
@@ -674,81 +674,94 @@ func getopts() {
 
 
 func getpass(prompt string) (pass []byte) {
+	verbose("Getting password...", 4)
+
 	var source string
-	var passphrase []string
-	error_message := fmt.Sprintf("Invalid argument for passphrase: %v\n", PASSPHRASE)
-	if len(PASSPHRASE) == 0 {
+	var passin []string
+	error_message := fmt.Sprintf("Invalid argument for passphrase: %v\n", PASSIN)
+	if len(PASSIN) == 0 {
 		source = "tty"
 	} else {
-		passphrase = strings.SplitN(PASSPHRASE, ":", 2)
-		if len(passphrase) < 2 {
+		passin = strings.SplitN(PASSIN, ":", 2)
+		if len(passin) < 2 {
 			fmt.Fprintf(os.Stderr, error_message)
 			os.Exit(EXIT_FAILURE)
 		}
-		source = passphrase[0]
+		source = passin[0]
 	}
 
 	switch source {
 		case "tty":
-			verbose("Getting password from user...", 4)
-
-			dev_tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-			if err != nil {
-				fail(fmt.Sprintf("%v\n", err))
-			}
-
-			fmt.Fprintf(dev_tty, prompt)
-
-			c := make(chan os.Signal, 1)
-			signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-			go func() {
-				<-c
-				stty("echo")
-				os.Exit(EXIT_FAILURE)
-			}()
-
-			stty("-echo")
-
-			input := bufio.NewReader(dev_tty)
-			pass, err = input.ReadBytes('\n')
-			if err != nil {
-				fail(fmt.Sprintf("Unable to read data from user: %v\n", err))
-			}
-
-			stty("echo")
-			fmt.Fprintf(dev_tty, "\n")
-
-			return pass[:len(pass)-1]
-
+			return getpassFromUser(prompt)
 		case "pass":
-			return []byte(passphrase[1])
-
+			return []byte(passin[1])
 		case "file":
-			file, err := os.Open(passphrase[1])
-			if err != nil {
-				fmt.Fprintf(os.Stderr, error_message)
-				os.Exit(EXIT_FAILURE)
-			}
-			defer file.Close()
-			scanner := bufio.NewScanner(file)
-			for scanner.Scan() {
-				return []byte(scanner.Text())
-			}
-
+			return getpassFromFile(passin[1])
 		case "env":
-			password := os.Getenv(passphrase[1])
-			if len(password) < 1 {
-				fmt.Fprintf(os.Stderr, "Environment variable %v not set\n", passphrase[1])
-				os.Exit(EXIT_FAILURE)
-			} else {
-				return []byte(password)
-			}
-
+			return getpassFromEnv(passin[1])
 		default:
-			fmt.Fprintf(os.Stderr, error_message)
-			os.Exit(EXIT_FAILURE)
+			fail(error_message)
 	}
-	return []byte("")
+
+	return
+}
+
+
+func getpassFromEnv(varname string) (pass []byte) {
+	pass = []byte(os.Getenv(varname))
+	if len(pass) < 1 {
+		fail(fmt.Sprintf("Environment variable '%v' not set.\n", varname))
+	}
+	return
+}
+
+
+func getpassFromFile(fname string) (pass []byte) {
+	verbose(fmt.Sprintf("Getting password from file '%s'...", fname), 5)
+	file, err := os.Open(fname)
+	if err != nil {
+		fail(fmt.Sprintf("Unable to open '%s': %v\n", fname, err))
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		return []byte(scanner.Text())
+	}
+
+	return
+}
+
+
+func getpassFromUser(prompt string) (pass []byte) {
+	verbose("Getting password from user...", 5)
+
+	dev_tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		fail(fmt.Sprintf("%v\n", err))
+	}
+
+	fmt.Fprintf(dev_tty, prompt)
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		stty("echo")
+		os.Exit(EXIT_FAILURE)
+	}()
+
+	stty("-echo")
+
+	input := bufio.NewReader(dev_tty)
+	pass, err = input.ReadBytes('\n')
+	if err != nil {
+		fail(fmt.Sprintf("Unable to read data from user: %v\n", err))
+	}
+
+	stty("echo")
+	fmt.Fprintf(dev_tty, "\n")
+
+	return pass[:len(pass)-1]
 }
 
 
@@ -1049,7 +1062,7 @@ func unpadBuffer(buf []byte) (unpadded []byte) {
 
 
 func usage(out io.Writer) {
-	usage := `Usage: %v [-GVdehv] [-f file] [-g group] [-k key] [-u user] [-p passphrase]
+	usage := `Usage: %v [-GVdehv] [-f file] [-g group] [-k key] [-p passin] [-u user]
 	-G        search for user keys on GitHub
 	-V        print version information and exit
 	-d        decrypt
@@ -1060,7 +1073,7 @@ func usage(out io.Writer) {
 	-k key    encrypt using this public key file or
 	          decrypt using this private key file
 	-u user   encrypt for this user
-	-p passphrase pass:passphrase, env:envvar, file:filename
+	-p passin pass:passphrase, env:envvar, file:filename
 	-v        be verbose
 `
 	fmt.Fprintf(out, usage, PROGNAME)

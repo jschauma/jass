@@ -1,3 +1,6 @@
+* Mon Apr 20 2014 - jschauma@netmeister.org
+-  merge ability to specify passphrase on command-line from @angadsg
+
 * Wed Sep 24 2014 - jschauma@twitter.com
 - 3.0.3
 -  [SECURITY-14609]: accept encrypted input with spurious whitespace
