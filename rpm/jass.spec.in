@@ -1,3 +1,5 @@
+%global debug_package	%{nil}
+
 %define name		jass
 %define release		1
 %define version 	VERSION
@@ -23,10 +25,10 @@ on stdout, encrypted for the given key or user.
 %setup -q
 
 %build
-mkdir -p %{mybuilddir}/usr/bin
-mkdir -p %{mybuilddir}/usr/share/man/man1
 
 %install
+mkdir -p %{mybuilddir}/usr/bin
+mkdir -p %{mybuilddir}/usr/share/man/man1
 install -c -m 755 src/jass %{mybuilddir}/usr/bin/jass
 install -c -m 444 doc/jass.1 %{mybuilddir}/usr/share/man/man1/jass.1
 

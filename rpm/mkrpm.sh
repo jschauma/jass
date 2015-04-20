@@ -5,7 +5,7 @@ set -e
 
 for dir in BUILD RPMS SOURCES SPECS SRPMS; do
 	dir="${HOME}/redhat/${dir}"
-	test -d "${dir}" || mkdir -p "${HOME}/redhat/${dir}"
+	test -d "${dir}" || mkdir -p "${dir}"
 done
 
 name=${1:?"Usage: build <toolname>"}

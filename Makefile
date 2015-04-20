@@ -4,7 +4,8 @@ RPMREV=$(shell awk '/%define release/ { print $$3;}' rpm/jass.spec.in)
 
 .PHONY: test
 
-HOST="opsnest1"
+HOST?="jumphost"
+PUBHOST?="pubhost:dir/"
 DSTROOT=osx/dstroot
 PREFIX?=/usr/local
 
@@ -12,7 +13,6 @@ help:
 	@echo "The following targets are available:"
 	@echo "build      build the executable"
 	@echo "clean      remove temporary build files"
-	@echo "dottools   upload/install binaries to ${HOST} for dottools"
 	@echo "install    install ${NAME} into ${PREFIX}"
 	@echo "osxpkg     create an OS X package of ${NAME}-${VERSION}"
 	@echo "release    get everything ready for a new release"
@@ -20,6 +20,7 @@ help:
 	@echo "sign       sign the RPM and OS X package"
 	@echo "test       run all tests under tests/"
 	@echo "uninstall  uninstall ${NAME} from ${PREFIX}"
+	@echo "upload     upload packages to ${PUBHOST}"
 
 rpm: spec buildrpm
 
@@ -36,8 +37,9 @@ src/${NAME}: src/${NAME}.go
 buildrpm: packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm
 
 linux_binary:
+	ssh ${HOST} "mkdir -p ${NAME}"
 	rsync -e ssh -avz --exclude osx/ --exclude packages/ --exclude .git/ . ${HOST}:${NAME}/.
-	ssh ${HOST} "cd ${NAME}/src && rm -f ${NAME} && GOROOT=~/go ~/go/bin/go build jass.go"
+	ssh ${HOST} "cd ${NAME}/src && rm -f ${NAME} && go build jass.go"
 
 packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm: spec linux_binary
 	ssh ${HOST} "cd ${NAME}/rpm && sh mkrpm.sh ${NAME}.spec"
@@ -72,12 +74,6 @@ release: version osx/${NAME}-${VERSION}.dmg.asc packages/rpms/${NAME}-${VERSION}
 version:
 	echo ${VERSION} > packages/version
 
-dottools: src/${NAME}-dottools-wrapper src/${NAME} linux_binary
-	ssh ${HOST} "cp ${NAME}/src/${NAME} tools/${NAME}/bin/${NAME}.Linux"
-	scp src/${NAME} ${HOST}:tools/${NAME}/bin/${NAME}.Darwin
-	scp src/${NAME}-dottools-wrapper ${HOST}:tools/${NAME}/bin/${NAME}
-	scp doc/${NAME}.1 ${HOST}:tools/${NAME}/man/man1/.
-
 prep: .prepdone
 
 .prepdone:
@@ -109,6 +105,13 @@ install: build
 uninstall:
 	rm -f ${PREFIX}/bin/${NAME} ${PREFIX}/share/man/man1/${NAME}.1
 
+upload: release
+	scp packages/dmgs/${NAME}-${VERSION}.dmg			\
+	    packages/dmgs/${NAME}-${VERSION}.dmg.asc			\
+	    packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm	\
+	    packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm.asc	\
+	    ${PUBHOST}
+
 test: src/${NAME}
 	@cd tests && for t in *.sh; do			\
 		sh $${t};				\
@@ -122,4 +125,4 @@ clean:
 	rm -f osx/${NAME}.pkg/Contents/Archive.bom
 	rm -f osx/${NAME}.pkg/Contents/Archive.pax.gz
 	rm -fr osx/${NAME}.pkg/Contents/Resources osx/${NAME}-${VERSION}.pkg
-	rm -f packages/dmgs/${NAME}.dmg*
+	rm -f packages/dmgs/${NAME}.dmg* packages/version

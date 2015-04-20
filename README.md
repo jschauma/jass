@@ -1,3 +1,12 @@
+Quick Summary
+=============
+jass(1) is a tool to let you encrypt/decrypt data using SSH keys.  Keys
+can be provided locally, fetched from LDAP, or retrieved from GitHub or
+another external keyserver.
+
+Please see below for further details.
+
+
 Sharing Secrets
 ===============
 Every now and then we have a need to share a "secret" with some
@@ -19,12 +28,8 @@ of ssh keys for authentication, but what not everybody might be aware of
 is that by their very nature these keys can also be used for encryption of
 non-SSH related data.
 
-The commands to do this are not very complex, but the combination is
-generally longer than any of us would like to have to remember.  jass(1)
-implements these commands with a lot of convenience glue and presents a
-simplified user interface to allow for the encryption of data with the
-public ssh keys of the specified recipients, as well as the decryption
-using the given private ssh key.
+jass(1) does just that.  It supports encryption for multiple keys and
+should generally be reasonably "user friendly".
 
 
 Supported Platforms
@@ -36,15 +41,51 @@ also available in the 'src' directory.)
 jass(1) was tested on the following systems:
 
 - CentOS release 5 and 6
-- Mac OS X 10.9.1
+- RedHat Enterprise Linux 6.5
+- Mac OS X 10.10.3
 - NetBSD 6.0.1
+
+Finding keys
+============
+You can specify the public key(s) to encrypt data for on the command-line.
+Alternatively, jass(1) can try to fetch the key(s) for a given user or
+members of a Unix group from LDAP or a keyserver.
+
+You can specify the default method in the sources prior to building
+jass(1); support for a configuration file may be added in the future.
+
+KeyKeeper Server
+----------------
+jass(1) can query a "KeyKeeper" server to retrieve public SSH keys.  When
+doing so, it expects the server to respond with JSON data in the format
+of:
+
+```
+{
+  "result" : {
+    "keys" : {
+      "key" : [
+        {
+          "trust"     : "string",
+          "content"   : "ssh-rsa AAAAB3NzaC1...",
+          "sudo"      : "string",
+          "type"      : "string",
+          "validated" : "string",
+          "api"       : "string"
+        },
+        ...
+      ]
+    },
+    "status" : "string",
+    "user"   : "string"
+  }
+}
+```
+
 
 
 How to install jass(1)
 ======================
-jass(1) allows you to query LDAP for ssh keys.  If you are using this
-feature, set the two LDAP* variables noted in the manual page.
-
 Just copy the manual page from doc/jass.1 to somewhere in your MANPATH;
 'go build src/jass.go' and copy the resulting binary somewhere in your
 PATH.
@@ -66,7 +107,7 @@ via email:
 
 If you do not have a user named 'jschauma' on your local systems, nor in
 LDAP (if you set that up), then you can ask jass(1) to look that user's
-key on GitHub by specifying the '-G' flag.
+key on GitHub by specifying the '-G' flag:
 
 For example, to encrypt a message for Linus Torvalds, you might run:
 
@@ -76,7 +117,6 @@ Please see the manual page for details and other examples.
 
 Decrypting data
 ---------------
-
 To decrypt data, you need to have access to the private ssh key in
 question. This means that this should not happen on a shared box but
 instead is likely to occur on your desktop, laptop or other private

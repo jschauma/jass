@@ -1,5 +1,10 @@
-* Mon Apr 20 2014 - jschauma@netmeister.org
+* Mon Apr 20 2015 - jschauma@netmeister.org
+- 3.2:
 -  merge ability to specify passphrase on command-line from @angadsg
+
+* Wed Apr 15 2015 - jschauma@yahoo-inc.com
+- 3.1:
+-  add support for KeyKeeper keys
 
 * Wed Sep 24 2014 - jschauma@twitter.com
 - 3.0.3

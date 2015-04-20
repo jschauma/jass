@@ -2,16 +2,12 @@
 
 . ./setup
 
-NAME="dos2unix"
+NAME="handles KeyKeeper keys"
 
 begin
 
-nkey=${TDIR}/k
-ssh-keygen -f ${nkey} -P '' -t rsa >/dev/null 2>>${STDERR}
-
-OUT=$(echo "${MSG}" | ${JASS} -k ${nkey}.pub | sed -e 's/$//' | ${JASS} -d -k ${nkey})
-
-if [ x"${OUT}" != x"${MSG}" ]; then
+echo "${MSG}" | ${JASS} -K -u ${USER} >/dev/null 2>>${STDERR}
+if [ $? -gt 0 ]; then
 	fail
 fi
 

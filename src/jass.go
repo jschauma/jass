@@ -1,8 +1,11 @@
 /*
- * Copyright (c) 2013, Twitter. Inc
+ * Copyright (c) 2013, Twitter. Inc.
+ * Copyright (c) 2015, Yahoo, Inc.
  *
  * Originally written by Jan Schaumann <jschauma@twitter.com> in April
  * 2013 in shell; re-written in Go in December 2013.
+ *
+ * Currently maintained by Jan Schaumann <jschauma@yahoo-inc.com>.
  *
  * This little program allows you to easily share secrets with other users
  * by way of ssh pubkeys.
@@ -22,6 +25,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -50,6 +54,14 @@ var LDAPSEARCH = "ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com"
 var LDAPFIELD = ""
 var LDAPSEARCH = ""
 
+/* You can enable default URLs here, if you so choose. */
+
+var URLS = map[string]*KeyURL {
+	"GitHub"    : { "https://github.com/<user>.keys", false },
+	"KeyKeeper" : { "https://keykeeper.corp.yahoo.com/v2/api/keys?user=<user>", false },
+}
+
+
 /* You should not need to make any changes below this line. */
 
 const EXIT_FAILURE = 1
@@ -57,9 +69,10 @@ const EXIT_SUCCESS = 0
 const MAX_COLUMNS = 76
 
 const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
+const OPENSSH_DSS_KEY_SUBSTRING = "ssh-dss AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "3.0.3"
+const VERSION = "3.2"
 
 var ACTION = "encrypt"
 
@@ -67,9 +80,31 @@ var FILES []string
 var KEY_FILES = map[string]bool{}
 var PASSIN string
 
+type KeyURL struct {
+	Url string
+	Enabled bool
+}
+
 type SSHKey struct {
 	Key rsa.PublicKey
 	Fingerprint string
+}
+
+type KeyKeeperKeys struct {
+	Result struct {
+		Keys struct {
+			Key []struct {
+				Trust string
+				Content string
+				Sudo string
+				Type string
+				Validated string
+				Api string
+			}
+		}
+		Status string
+		User string
+	}
 }
 
 var GROUPS = map[string]bool {}
@@ -77,8 +112,6 @@ var GROUPS = map[string]bool {}
 var PUBKEYS = map[string][]SSHKey{}
 
 var RECIPIENTS = map[string][]string{}
-
-var URLS = map[string]string{}
 
 var VERBOSITY int = 0
 
@@ -545,12 +578,24 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 func getPubkeysFromURLs(uname string) (keys []string) {
 	verbose(fmt.Sprintf("Trying to get ssh pubkeys for '%v' from URLs...", uname), 3)
 
-	for site, url := range URLS {
-		url = strings.Replace(url, "<user>", uname, -1)
+	client := new(http.Client)
+
+	for site, keyurl:= range URLS {
+		if !keyurl.Enabled {
+			continue
+		}
+		url := strings.Replace(keyurl.Url, "<user>", uname, -1)
 		verbose(fmt.Sprintf("Trying to get ssh pubkeys for '%v' from %v (%v)...", uname, site, url), 3)
-		resp, err := http.Get(url)
+
+		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to get %v: %v\n", url, err)
+			fmt.Fprintf(os.Stderr, "Unable to create new request %v: %v\n", url, err)
+			continue
+		}
+		req.Header.Add("Accept", "text/html,application/xhtml+xml,application/xml,application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to GET %v: %v\n", url, err)
 			continue
 		}
 		body, err := ioutil.ReadAll(resp.Body)
@@ -559,7 +604,12 @@ func getPubkeysFromURLs(uname string) (keys []string) {
 			fmt.Fprintf(os.Stderr, "Unable to read http response: %v\n", err)
 			continue
 		}
-		keys = append(keys, strings.Split(string(body), "\n")...)
+
+		if site == "KeyKeeper" {
+			keys = append(keys, parseKeyKeeperJson(body)...)
+		} else {
+			keys = append(keys, strings.Split(string(body), "\n")...)
+		}
 	}
 
 	return
@@ -589,8 +639,7 @@ func getRSAKeyFromSSHFile(keyFile string) (key *rsa.PrivateKey) {
 	keyBytes := block.Bytes
 	if strings.Contains(string(pemData), "Proc-Type: 4,ENCRYPTED") {
 
-		var password []byte
-		password = getpass(fmt.Sprintf("Enter pass phrase for %s: ", keyFile))
+		password := getpass(fmt.Sprintf("Enter pass phrase for %s: ", keyFile))
 		keyBytes, err = x509.DecryptPEMBlock(block, password)
 		if err != nil {
 			fail(fmt.Sprintf("Unable to decrypt private key: %v\n", err))
@@ -630,7 +679,9 @@ func getopts() {
 			printVersion()
 			os.Exit(EXIT_SUCCESS)
 		case "-G":
-			URLS["GitHub"] =  "https://github.com/<user>.keys"
+			URLS["GitHub"].Enabled = true
+		case "-K":
+			URLS["KeyKeeper"].Enabled = true
 		case "-d":
 			ACTION = "decrypt"
 		case "-e":
@@ -654,14 +705,14 @@ func getopts() {
 			eatit = true
 			argcheck("-k", args, i)
 			KEY_FILES[args[i+1]] = true
-		case "-u":
-			eatit = true
-			argcheck("-u", args, i)
-			RECIPIENTS[args[i+1]] = make([]string, 0)
 		case "-p":
 			eatit = true
 			argcheck("-p", args, i)
 			PASSIN = args[i+1]
+		case "-u":
+			eatit = true
+			argcheck("-u", args, i)
+			RECIPIENTS[args[i+1]] = make([]string, 0)
 		case "-v":
 			VERBOSITY++
 		default:
@@ -882,6 +933,24 @@ func parseEncryptedInput() (message string, keys map[string]string, version stri
 }
 
 
+func parseKeyKeeperJson(data []byte) (keys []string) {
+	verbose("Parsing KeyKeeper json...", 4)
+	verbose(fmt.Sprintf("%v", data), 5)
+
+	var kkeys KeyKeeperKeys
+	err := json.Unmarshal(data, &kkeys)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to parse json: %v\n", err)
+		return
+	}
+
+	for _, k := range kkeys.Result.Keys.Key {
+		keys = append(keys, k.Content)
+	}
+
+	return
+}
+
 func printVersion() {
 	fmt.Printf("%v version %v\n", PROGNAME, VERSION)
 }
@@ -945,6 +1014,21 @@ func runCommandStdinPipe(cmd *exec.Cmd) (pipe io.WriteCloser) {
 func sshToPubkey(key string) (pubkey SSHKey) {
 	verbose("Converting SSH input into a public key...", 3)
 
+	/* Many users have DSS keys stored in addition to RSA keys.  When
+	 * multiple keys are used, having an error for what is a valid SSH
+	 * key, just not of type RSA, is a bit annoying, so we silence
+	 * this error by default. */
+	i := strings.Index(key, OPENSSH_DSS_KEY_SUBSTRING)
+	if i >= 0 {
+		if VERBOSITY > 0 {
+			fmt.Fprintf(os.Stderr, "Skipping what looks like a DSS key to me.\n")
+		}
+		if VERBOSITY > 1 {
+			fmt.Fprintf(os.Stderr, key)
+		}
+		return
+	}
+
 	/* An RSA SSH key can have leading key options (including quoted
 	 * whitespace) and trailing comments (including whitespace).  We
 	 * take a short cut here and assume that if it contains the known
@@ -952,7 +1036,7 @@ func sshToPubkey(key string) (pubkey SSHKey) {
 	 * would be a false assumption if one of the comments or options
 	 * contained that same pattern, but anybody who creates such a key
 	 * can go screw themselves. */
-	i:= strings.Index(key, OPENSSH_RSA_KEY_SUBSTRING)
+	i = strings.Index(key, OPENSSH_RSA_KEY_SUBSTRING)
 	if i < 0 {
 		fmt.Fprintf(os.Stderr, "Not an ssh RSA public key: '%v'\n", key)
 		return
@@ -1064,16 +1148,16 @@ func unpadBuffer(buf []byte) (unpadded []byte) {
 func usage(out io.Writer) {
 	usage := `Usage: %v [-GVdehv] [-f file] [-g group] [-k key] [-p passin] [-u user]
 	-G        search for user keys on GitHub
+	-K        search for user keys on KeyKeeper
 	-V        print version information and exit
 	-d        decrypt
 	-e        encrypt (default)
 	-f file   Encrypt/decrypt file (default: stdin)
 	-g group  encrypt for members of this group
 	-h        print this help and exit
-	-k key    encrypt using this public key file or
-	          decrypt using this private key file
-	-u user   encrypt for this user
+	-k key    encrypt using this public key file
 	-p passin pass:passphrase, env:envvar, file:filename
+	-u user   encrypt for this user
 	-v        be verbose
 `
 	fmt.Fprintf(out, usage, PROGNAME)

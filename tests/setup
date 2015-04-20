@@ -10,7 +10,8 @@ if [ ! -x ${JASS} ]; then
 	exit 1
 fi
 
-alias ldaps='ldapsearch -LLLxh ldap.local.twitter.com -b dc=ods,dc=twitter,dc=corp'
+# XXX: change this if you're using LDAP
+alias ldaps='ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com'
 
 begin() {
 	echo "=> Now testing: ${NAME}..."

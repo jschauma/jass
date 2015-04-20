@@ -2,7 +2,9 @@
 
 . ./setup
 
-HOST="nest1.twitter.biz"
+# replace this with the hostname of a jumpbox or similar where you have a
+# copy of jass installed and you wish to test backwards compatibility
+HOST="jumpbox"
 NAME="compatible with whatever is on ${HOST}"
 
 begin
