@@ -92,8 +92,7 @@ PASS PHRASE ARGUMENTS
 
      env:var	     Obtain the password from the environment variable var.
 		     Since the environment of other processes may be visible
-		     via e.g.  ps(1) m this option should be used with cau-
-		     tion.
+		     via e.g.  ps(1), this option should be used with caution.
 
      file:pathname   The first line of pathname is the password.  pathname
 		     need not refer to a regular file: it could for example
