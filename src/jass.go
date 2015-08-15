@@ -56,11 +56,10 @@ var LDAPSEARCH = ""
 
 /* You can enable default URLs here, if you so choose. */
 
-var URLS = map[string]*KeyURL {
-	"GitHub"    : { "https://github.com/<user>.keys", false },
-	"KeyKeeper" : { "https://keykeeper.corp.yahoo.com/v2/api/keys?user=<user>", false },
+var URLS = map[string]*KeyURL{
+	"GitHub":    {"https://github.com/<user>.keys", false},
+	"KeyKeeper": {"https://keykeeper.corp.yahoo.com/v2/api/keys?user=<user>", false},
 }
-
 
 /* You should not need to make any changes below this line. */
 
@@ -81,12 +80,12 @@ var KEY_FILES = map[string]bool{}
 var PASSIN string
 
 type KeyURL struct {
-	Url string
+	Url     string
 	Enabled bool
 }
 
 type SSHKey struct {
-	Key rsa.PublicKey
+	Key         rsa.PublicKey
 	Fingerprint string
 }
 
@@ -94,20 +93,20 @@ type KeyKeeperKeys struct {
 	Result struct {
 		Keys struct {
 			Key []struct {
-				Trust string
-				Content string
-				Sudo string
-				Type string
+				Trust     string
+				Content   string
+				Sudo      string
+				Type      string
 				Validated string
-				Api string
+				Api       string
 			}
 		}
 		Status string
-		User string
+		User   string
 	}
 }
 
-var GROUPS = map[string]bool {}
+var GROUPS = map[string]bool{}
 
 var PUBKEYS = map[string][]SSHKey{}
 
@@ -135,11 +134,10 @@ func main() {
  */
 
 func argcheck(flag string, args []string, i int) {
-	if len(args) <= (i+1) {
+	if len(args) <= (i + 1) {
 		fail(fmt.Sprintf("'%v' needs an argument\n", flag))
 	}
 }
-
 
 func bytesToKey(skey []byte, salt []byte) (key []byte, iv []byte) {
 	verbose("Deriving key and IV from session key and salt...", 3)
@@ -161,11 +159,11 @@ func bytesToKey(skey []byte, salt []byte) (key []byte, iv []byte) {
 	 * IV  = Hash3
 	 */
 	rounds := 3
-	hashes := make([][]byte, rounds + 1)
+	hashes := make([][]byte, rounds+1)
 	var hash []byte
 	hashes[0] = hash
 
-	for i:= 1; i <= rounds; i++ {
+	for i := 1; i <= rounds; i++ {
 		md5sum := md5.New()
 		md5sum.Write(hashes[i-1])
 		md5sum.Write(skey)
@@ -179,7 +177,6 @@ func bytesToKey(skey []byte, salt []byte) (key []byte, iv []byte) {
 
 	return
 }
-
 
 func convertPubkeys() {
 	verbose("Converting pubkeys to PKCS8 format...", 1)
@@ -201,25 +198,23 @@ func convertPubkeys() {
 	}
 }
 
-
 func decode(input string) (decoded []byte) {
 	verbose("Decoding data...", 2)
 	verbose(fmt.Sprintf("Decoding '%v'...", input), 3)
 
-	decoded, err := base64.StdEncoding.DecodeString(input);
+	decoded, err := base64.StdEncoding.DecodeString(input)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to decode input:\n%v\n%v\n",
-						input, err)
+			input, err)
 	}
 	return
 }
-
 
 func decrypt() {
 	verbose("Decrypting...", 1)
 
 	var keys []string
-	for k,_ := range KEY_FILES {
+	for k, _ := range KEY_FILES {
 		keys = append(keys, k)
 	}
 	privkey := getRSAKeyFromSSHFile(keys[0])
@@ -232,7 +227,6 @@ func decrypt() {
 
 	decryptMessage(decode(message), sessionKey)
 }
-
 
 func decryptMessage(msg []byte, skey []byte) {
 	verbose("Decrypting message...", 2)
@@ -249,7 +243,7 @@ func decryptMessage(msg []byte, skey []byte) {
 	 *
 	 * Backwards compatibility is a bitch. */
 	if len(skey) == 45 {
-		skey = skey[:len(skey) - 1]
+		skey = skey[:len(skey)-1]
 	}
 
 	key, iv := bytesToKey(skey, salt)
@@ -269,7 +263,6 @@ func decryptMessage(msg []byte, skey []byte) {
 	fmt.Printf("%v", string(msg))
 }
 
-
 func decryptSessionKey(skey []byte, privkey *rsa.PrivateKey) (session_key []byte) {
 	verbose("Decrypting session key...", 2)
 
@@ -281,13 +274,11 @@ func decryptSessionKey(skey []byte, privkey *rsa.PrivateKey) (session_key []byte
 	return
 }
 
-
 func encodeVersionInfo() {
 	/* This is really only useful for debugging purposes. */
 	verbose("Encoding version info...", 2)
 	uuencode("version", []byte(fmt.Sprintf("VERSION: %v\n", VERSION)))
 }
-
 
 func encrypt() {
 	verbose("Encrypting...", 1)
@@ -301,7 +292,6 @@ func encrypt() {
 
 	encodeVersionInfo()
 }
-
 
 func encryptData(skey string) {
 	verbose("Encrypting data...", 2)
@@ -328,7 +318,6 @@ func encryptData(skey string) {
 	uuencode("message", output)
 }
 
-
 func encryptSessionKey(skey string) {
 	verbose("Encrypting session key...", 2)
 
@@ -338,14 +327,13 @@ func encryptSessionKey(skey string) {
 			ciphertext, err := rsa.EncryptPKCS1v15(random, &key.Key, []byte(skey))
 			if err != nil {
 				fail(fmt.Sprintf("Unable to encrypt session key for %v-%v: %v\n",
-							recipient, key.Fingerprint, err))
+					recipient, key.Fingerprint, err))
 			}
 
 			uuencode(fmt.Sprintf("%v-%v", recipient, key.Fingerprint), ciphertext)
 		}
 	}
 }
-
 
 /*
  * Expanding a group happens by way of supplementary groups (ie
@@ -358,7 +346,7 @@ func expandGroup(group string) {
 	members := expandSupplementaryGroup(group)
 	members = append(members, expandPrimaryGroup(group)...)
 
-	if (len(LDAPSEARCH) > 1) {
+	if len(LDAPSEARCH) > 1 {
 		members = append(members, expandLDAPGroup(group)...)
 	}
 
@@ -369,18 +357,17 @@ func expandGroup(group string) {
 	}
 }
 
-
 func expandLDAPGroup(group string) (members []string) {
 	verbose(fmt.Sprintf("Expanding group '%v' from LDAP...", group), 3)
 
-	if (len(LDAPSEARCH) < 1) {
+	if len(LDAPSEARCH) < 1 {
 		return
 	}
 
 	ldapsearch := append(strings.Split(LDAPSEARCH, " "),
-				fmt.Sprintf("cn=%v", group), "memberUid")
+		fmt.Sprintf("cn=%v", group), "memberUid")
 	groups := runCommand(ldapsearch, false)
-	for _,line := range(strings.Split(groups, "\n")) {
+	for _, line := range strings.Split(groups, "\n") {
 		fields := strings.Split(line, "memberUid: ")
 		if len(fields) == 2 {
 			members = append(members, fields[1])
@@ -388,7 +375,6 @@ func expandLDAPGroup(group string) (members []string) {
 	}
 	return
 }
-
 
 func expandPrimaryGroup(group string) []string {
 	verbose(fmt.Sprintf("Expanding group '%v' by primary group membership...", group), 3)
@@ -406,7 +392,6 @@ func expandPrimaryGroup(group string) []string {
 	return strings.Split(output, "\n")
 }
 
-
 func expandSupplementaryGroup(group string) []string {
 	verbose(fmt.Sprintf("Expanding group '%v' by supplementary group membership...", group), 3)
 
@@ -416,12 +401,10 @@ func expandSupplementaryGroup(group string) []string {
 	return strings.Split(output, ",")
 }
 
-
 func fail(msg string) {
 	fmt.Fprintf(os.Stderr, msg)
 	os.Exit(EXIT_FAILURE)
 }
-
 
 func getFingerPrint(pubkey rsa.PublicKey) (fp string) {
 	verbose("Generating fingerprint for raw public key...", 4)
@@ -455,7 +438,7 @@ func getFingerPrint(pubkey rsa.PublicKey) (fp string) {
 	for i := 0; i < xlen; i++ {
 		tmpbuf = append(tmpbuf, 0)
 	}
-	tmpbuf = append(tmpbuf, x.Bytes()...,)
+	tmpbuf = append(tmpbuf, x.Bytes()...)
 
 	/* append one zero byte to indicate signedness */
 	tmpbuf = append(tmpbuf, 0)
@@ -465,8 +448,8 @@ func getFingerPrint(pubkey rsa.PublicKey) (fp string) {
 
 	fingerprint := md5.New()
 	fingerprint.Write(b.Bytes())
-	for i,b := range fmt.Sprintf("%x", fingerprint.Sum(nil)) {
-		if i>0 && i%2 == 0 {
+	for i, b := range fmt.Sprintf("%x", fingerprint.Sum(nil)) {
+		if i > 0 && i%2 == 0 {
 			fp += ":"
 		}
 		fp += string(b)
@@ -474,18 +457,17 @@ func getFingerPrint(pubkey rsa.PublicKey) (fp string) {
 	return
 }
 
-
 /* Pubkeys are retrieved by first trying local files, then looking in
  * LDAP, then looking at any URLs.  First match wins: if we have local
  * keys, we do _not_ go and ask LDAP. */
 func getPubkeys() {
 	verbose("Identifying/retrieving ssh pubkeys...", 2)
 
-	for group,_ := range GROUPS {
+	for group, _ := range GROUPS {
 		expandGroup(group)
 	}
 
-	for recipient,_ := range RECIPIENTS {
+	for recipient, _ := range RECIPIENTS {
 		var keys []string
 
 		/* If we specified a pubkey on the command-line, that file
@@ -521,20 +503,19 @@ func getPubkeys() {
 	}
 }
 
-
 func getPubkeysFromLDAP(uname string) (tkeys []string) {
 	var onekey string
 
-	if (len(LDAPSEARCH) < 1) {
+	if len(LDAPSEARCH) < 1 {
 		return
 	}
 
 	verbose(fmt.Sprintf("Trying to get ssh pubkeys for '%v' from LDAP...", uname), 3)
 
 	ldapsearch := append(strings.Split(LDAPSEARCH, " "),
-				fmt.Sprintf("uid=%v", uname), LDAPFIELD)
+		fmt.Sprintf("uid=%v", uname), LDAPFIELD)
 	ldapout := runCommand(ldapsearch, false)
-	for _,line := range(strings.Split(ldapout, "\n")) {
+	for _, line := range strings.Split(ldapout, "\n") {
 		fields := strings.Split(line, fmt.Sprintf("%v:", LDAPFIELD))
 		if len(fields) == 2 {
 			if len(onekey) > 0 {
@@ -557,7 +538,7 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 	 * contain any spaces, otherwise required for a valid ssh key.
 	 */
 	var keys []string
-	for _,k := range tkeys {
+	for _, k := range tkeys {
 		if !strings.Contains(k, " ") {
 			verbose("Decoding base64 encoded key...", 4)
 			decoded := decode(k)
@@ -574,13 +555,12 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 	return keys
 }
 
-
 func getPubkeysFromURLs(uname string) (keys []string) {
 	verbose(fmt.Sprintf("Trying to get ssh pubkeys for '%v' from URLs...", uname), 3)
 
 	client := new(http.Client)
 
-	for site, keyurl:= range URLS {
+	for site, keyurl := range URLS {
 		if !keyurl.Enabled {
 			continue
 		}
@@ -614,7 +594,6 @@ func getPubkeysFromURLs(uname string) (keys []string) {
 
 	return
 }
-
 
 /* With help from:
  * https://stackoverflow.com/questions/14404757/how-to-encrypt-and-decrypt-plain-text-with-a-rsa-keys-in-go
@@ -653,7 +632,6 @@ func getRSAKeyFromSSHFile(keyFile string) (key *rsa.PrivateKey) {
 	return
 }
 
-
 func getRandomBytes(rlen int) (random_data []byte) {
 	verbose("Generating random bytes...", 2)
 
@@ -665,11 +643,10 @@ func getRandomBytes(rlen int) (random_data []byte) {
 	return
 }
 
-
 func getopts() {
 	eatit := false
 	args := os.Args[1:]
-	for i,arg := range args {
+	for i, arg := range args {
 		if eatit {
 			eatit = false
 			continue
@@ -723,7 +700,6 @@ func getopts() {
 	}
 }
 
-
 func getpass(prompt string) (pass []byte) {
 	verbose("Getting password...", 4)
 
@@ -742,21 +718,20 @@ func getpass(prompt string) (pass []byte) {
 	}
 
 	switch source {
-		case "tty":
-			return getpassFromUser(prompt)
-		case "pass":
-			return []byte(passin[1])
-		case "file":
-			return getpassFromFile(passin[1])
-		case "env":
-			return getpassFromEnv(passin[1])
-		default:
-			fail(error_message)
+	case "tty":
+		return getpassFromUser(prompt)
+	case "pass":
+		return []byte(passin[1])
+	case "file":
+		return getpassFromFile(passin[1])
+	case "env":
+		return getpassFromEnv(passin[1])
+	default:
+		fail(error_message)
 	}
 
 	return
 }
-
 
 func getpassFromEnv(varname string) (pass []byte) {
 	pass = []byte(os.Getenv(varname))
@@ -765,7 +740,6 @@ func getpassFromEnv(varname string) (pass []byte) {
 	}
 	return
 }
-
 
 func getpassFromFile(fname string) (pass []byte) {
 	verbose(fmt.Sprintf("Getting password from file '%s'...", fname), 5)
@@ -781,7 +755,6 @@ func getpassFromFile(fname string) (pass []byte) {
 
 	return
 }
-
 
 func getpassFromUser(prompt string) (pass []byte) {
 	verbose("Getting password from user...", 5)
@@ -815,7 +788,6 @@ func getpassFromUser(prompt string) (pass []byte) {
 	return pass[:len(pass)-1]
 }
 
-
 func identifyCorrectSessionKeyData(privfp string, keys map[string]string) (skey []byte) {
 	verbose("Identifying correct session key data...", 2)
 
@@ -837,7 +809,6 @@ func identifyCorrectSessionKeyData(privfp string, keys map[string]string) (skey 
 	return
 }
 
-
 func padBuffer(buf []byte) (padded []byte) {
 	/* We will uses PKCS7 padding: The value of each added byte is the
 	 * number of bytes that are added, i.e. N bytes, each of value N
@@ -850,13 +821,12 @@ func padBuffer(buf []byte) (padded []byte) {
 	num := aes.BlockSize - len(buf)%aes.BlockSize
 
 	padded = buf
-	for i:= 0; i < num; i++ {
+	for i := 0; i < num; i++ {
 		padded = append(padded, byte(num))
 	}
 
 	return
 }
-
 
 /* jass(1) input consists of at least three uuencoded components:
  * - the actual data, encrypted with a session key
@@ -932,7 +902,6 @@ func parseEncryptedInput() (message string, keys map[string]string, version stri
 	return
 }
 
-
 func parseKeyKeeperJson(data []byte) (keys []string) {
 	verbose("Parsing KeyKeeper json...", 4)
 	verbose(fmt.Sprintf("%v", data), 5)
@@ -955,12 +924,11 @@ func printVersion() {
 	fmt.Printf("%v version %v\n", PROGNAME, VERSION)
 }
 
-
 func readInputFiles(c chan []byte) {
 	verbose("Reading input from all files...", 2)
 
 	alldata := make([]byte, 0)
-	for _,file := range FILES {
+	for _, file := range FILES {
 		verbose(fmt.Sprintf("Encrypting data from %v...", file), 3)
 		data, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -996,7 +964,6 @@ func runCommand(args []string, need_tty bool) string {
 	return strings.TrimSpace(stdout.String())
 }
 
-
 func runCommandStdinPipe(cmd *exec.Cmd) (pipe io.WriteCloser) {
 	pipe, err := cmd.StdinPipe()
 	if err != nil {
@@ -1009,7 +976,6 @@ func runCommandStdinPipe(cmd *exec.Cmd) (pipe io.WriteCloser) {
 
 	return
 }
-
 
 func sshToPubkey(key string) (pubkey SSHKey) {
 	verbose("Converting SSH input into a public key...", 3)
@@ -1080,7 +1046,7 @@ func sshToPubkey(key string) (pubkey SSHKey) {
 			continue
 		}
 
-		chunklen := int(dlen)+4
+		chunklen := int(dlen) + 4
 		if len(decoded) < chunklen {
 			fmt.Fprintf(os.Stderr, "Invalid data while trying to extract public key.\n")
 			fmt.Fprintf(os.Stderr, "Maybe a corrupted key?\n%v\n", key)
@@ -1116,7 +1082,6 @@ func sshToPubkey(key string) (pubkey SSHKey) {
 	return
 }
 
-
 func stty(arg string) {
 
 	flag := "-f"
@@ -1130,7 +1095,6 @@ func stty(arg string) {
 	}
 }
 
-
 func unpadBuffer(buf []byte) (unpadded []byte) {
 	/* OpenSSL (with which we're trying to be compatible) uses PKCS7
 	 * padding: The value of each added byte is the number of bytes
@@ -1140,10 +1104,9 @@ func unpadBuffer(buf []byte) (unpadded []byte) {
 	 * and then strip off as many to unpad. */
 	unpadded = buf
 	last := unpadded[len(unpadded)-1]
-	unpadded = unpadded[:len(unpadded) - int(last)]
+	unpadded = unpadded[:len(unpadded)-int(last)]
 	return
 }
-
 
 func usage(out io.Writer) {
 	usage := `Usage: %v [-GVdehv] [-f file] [-g group] [-k key] [-p passin] [-u user]
@@ -1163,7 +1126,6 @@ func usage(out io.Writer) {
 	fmt.Fprintf(out, usage, PROGNAME)
 }
 
-
 func uuencode(name string, msg []byte) {
 	verbose(fmt.Sprintf("Uuencoding %v...", name), 3)
 
@@ -1171,7 +1133,7 @@ func uuencode(name string, msg []byte) {
 	 * same behaviour here for backwards compatibility. */
 	fmt.Printf("begin-base64 600 %v\n", name)
 	out := base64.StdEncoding.EncodeToString(msg)
-	for len(out) > MAX_COLUMNS  {
+	for len(out) > MAX_COLUMNS {
 		fmt.Printf("%v\n", out[:MAX_COLUMNS])
 		out = out[MAX_COLUMNS:]
 	}
@@ -1179,16 +1141,14 @@ func uuencode(name string, msg []byte) {
 	fmt.Printf("====\n")
 }
 
-
 func verbose(msg string, level int) {
 	if level <= VERBOSITY {
-		for i := 0; i < level ; i++ {
+		for i := 0; i < level; i++ {
 			fmt.Fprintf(os.Stderr, "=")
 		}
 		fmt.Fprintf(os.Stderr, "> %v\n", msg)
 	}
 }
-
 
 func varCheck() {
 	verbose("Checking that all variables look ok...", 1)
@@ -1196,7 +1156,6 @@ func varCheck() {
 	if len(FILES) < 1 {
 		FILES = append(FILES, "/dev/stdin")
 	}
-
 
 	ldapfield := os.Getenv("LDAPFIELD")
 	if len(ldapfield) > 1 {
@@ -1216,7 +1175,6 @@ func varCheck() {
 	}
 }
 
-
 func varCheckDecrypt() {
 	verbose("Checking that all variables look ok for decrypting...", 2)
 	if len(RECIPIENTS) != 0 || len(GROUPS) != 0 {
@@ -1231,7 +1189,7 @@ func varCheckDecrypt() {
 
 	if len(KEY_FILES) == 0 {
 		verbose("No key specified, trying ~/.ssh/id_rsa...", 2)
-		usr, err := user.Current();
+		usr, err := user.Current()
 		if err != nil {
 			fail(fmt.Sprintf("%v\n", err))
 		}
@@ -1242,7 +1200,7 @@ func varCheckDecrypt() {
 	}
 
 	var keys []string
-	for k,_ := range KEY_FILES {
+	for k, _ := range KEY_FILES {
 		keys = append(keys, k)
 	}
 
@@ -1256,11 +1214,10 @@ func varCheckDecrypt() {
 	}
 }
 
-
 func varCheckEncrypt() {
 	verbose("Checking that all variables look ok for encrypting...", 2)
 	if len(KEY_FILES) > 0 {
-		for file,_ := range KEY_FILES {
+		for file, _ := range KEY_FILES {
 			keys, err := ioutil.ReadFile(file)
 			if err != nil {
 				fail(fmt.Sprintf("Unable to read %v: %v\n", file, err))
