@@ -1,3 +1,7 @@
+
+- merge pull request from tmcarr:
+  Some basic style fixes following Go's styleguide
+
 * Mon Apr 20 2015 - jschauma@netmeister.org
 - 3.2:
 -  merge ability to specify passphrase on command-line from @angadsg
