@@ -1,6 +1,13 @@
-
-- merge pull request from tmcarr:
-  Some basic style fixes following Go's styleguide
+* Fri Aug 28 2015 - jschauma@yahoo-inc.com
+- 4.0
+-  remove '-K' option; enable use of KeyKeeper via the
+   environment
+-  accept a KeyKeeper URL from the KEYKEEPER_URL environment
+   variable
+-  document KeyKeeper usage in manual page
+-  add '-l' option to list recipients
+-  merge pull request from tmcarr:
+   Some basic style fixes following Go's styleguide
 
 * Mon Apr 20 2015 - jschauma@netmeister.org
 - 3.2:

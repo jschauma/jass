@@ -4,7 +4,7 @@ NAME
      jass -- just another secret sharer
 
 SYNOPSIS
-     jass [-GKVdehv] [-f file] [-g group] [-k key] [-p passin] [-u user]
+     jass [-GVdehlv] [-f file] [-g group] [-k key] [-p passin] [-u user]
 
 DESCRIPTION
      The jass tool allows you to share a secret with other people through the
@@ -14,34 +14,33 @@ DESCRIPTION
 OPTIONS
      The following options are supported by jass:
 
-     -G	       Also look for public keys on GitHub.
+     -G		 Also look for public keys on GitHub.
 
-     -K	       Also look for public keys on KeyKeeper.
+     -V		 Print version number and exit.
 
-     -V	       Print version number and exit.
+     -e		 Perform encryption.  This is the default.
 
-     -e	       Perform encryption.  This is the default.
+     -d		 Perform decryption.
 
-     -d	       Perform decryption.
+     -f file	 Encrypt/decrypt this file.  If not specified, jass will read
+		 data from stdin.
 
-     -f file   Encrypt/decrypt this file.  If not specified, jass will read
-	       data from stdin.
+     -g group	 Encrypt for all members of this group.
 
-     -g group  Encrypt for all members of this group.
+     -h		 Print a short help message and exit.
 
-     -h	       Print a short help message and exit.
+     -k key	 Encrypt or decrypt the input using the key(s) found in key.
 
-     -k key    Encrypt or decrypt the input using the key(s) found in key.
+     -l		 List recipients of the encrypted input.
 
-     -p passin
-	       Specify the method to retrieve the passphrase for the private
-	       key.  See PASS PHRASE ARGUMENTS for details.  Defaults to
-	       interactively prompt on the controlling tty.
+     -p passin	 Specify the method to retrieve the passphrase for the private
+		 key.  See PASS PHRASE ARGUMENTS for details.  Defaults to
+		 interactively prompt on the controlling tty.
 
-     -u user   Encrypt the input for this user, attempting to find suitable
-	       public SSH keys on the local system or from LDAP.
+     -u user	 Encrypt the input for this user, attempting to find suitable
+		 public SSH keys on the local system or from LDAP.
 
-     -v	       Be verbose.  Can be specified multiple times.
+     -v		 Be verbose.  Can be specified multiple times.
 
 DETAILS
      It is not uncommon for people within a given organization to have a need
@@ -57,14 +56,18 @@ DETAILS
 
      As an alternative to providing a public key, a recipient may also be
      specified via the -g and -u flags.	 If -g was specified, jass will expand
-     the given group to individual users.  For each user, jass will first look
-     for that user's ~/.ssh/authorized_keys file, then the file
-     /etc/ssh/authorized_keys/<user>.  If neither of these is readable, and
-     LDAP is configured as a default, it will look for the field 'twSSHPubkey'
+     the given group to individual users.
+
+     For each user, jass will first look for that user's ~/.ssh/autho-
+     rized_keys file, then the file /etc/ssh/authorized_keys/<user>.
+
+     If neither of these is readable, and LDAP is configured as a default, it
+     will look for the field designated by the LDAPFIELD environment variable
      for the given username in LDAP.
 
      Alternatively, jass may look on a 'KeyKeeper' server for the public key
-     associated with the user.
+     associated with the user.	(See the section KEYKEEPER SERVER for
+     details.)
 
      If a usable pubkey was still not found, jass may then look for a key on
      the internet, for example on GitHub if the -G flag was specified.
@@ -74,9 +77,9 @@ DETAILS
 
      The output from jass consists of several uuencode(1)ed files.  The first
      is the encrypted message, the following files the session key encrypted
-     for each of the public keys.  jass will properly extract, decode and use
-     these when the -d flag is specified, though it should be noted that the
-     decrypted session key briefly lives on the disk in a temporary directory.
+     for each of the public keys, followed by version information.  jass will
+     properly extract, decode and use the session suitable key when the -d
+     flag is specified.
 
      When decrypting, if no key is specified via the -k flag, then jass will
      try ~/.ssh/id_rsa.
@@ -98,6 +101,34 @@ PASS PHRASE ARGUMENTS
 		     need not refer to a regular file: it could for example
 		     refer to a device or named pipe.  Note that standard Unix
 		     file access controls should be used to protect this file.
+
+KEYKEEPER SERVER
+     jass can query a "KeyKeeper" server to retrieve public SSH keys.  The URL
+     to retrieve keys on a per-user basis is derived from the KEYKEEPER_URL
+     environment variable.
+
+     When doing so, it expects the server to respond with JSON data in the
+     format of:
+
+	   {
+	     "result" : {
+	       "keys" : {
+		 "key" : [
+		   {
+		     "trust"	 : "string",
+		     "content"	 : "ssh-rsa AAAAB3NzaC1...",
+		     "sudo"	 : "string",
+		     "type"	 : "string",
+		     "validated" : "string",
+		     "api"	 : "string"
+		   },
+		   ...
+		 ]
+	       },
+	       "status" : "string",
+	       "user"	: "string"
+	     }
+	   }
 
 EXAMPLES
      To generate a secret message encrypted with the file 'bobs_pubkey' and
@@ -135,6 +166,16 @@ ENVIRONMENT
 
      LDAPSEARCH	  ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
 
+     You may also set the KEYKEEPER_URL environment variable to a URL to be
+     used as a KeyKeeper service.  The string "<user>" will be replaced by the
+     -u argument.
+
+     Setting this environment variable simultaneously enables a lookup of user
+     keys using this KeyKeeper service.	 For example:
+
+	   $ export KEYKEEPER_URL="https://keykeeper.tld/keys?user=<user>"
+	   $ jass -u jdoe <data
+
 SEE ALSO
      enc(1), openssl(1), rsautl(1), ssh-keygen(1)
 
@@ -150,4 +191,4 @@ HISTORY
      jass was originally written by Jan Schaumann <jschauma@netmeister.org> in
      April 2013.
 
-NetBSD 5.0			April 20, 2015			    NetBSD 5.0
+NetBSD 5.0			August 28, 2015			    NetBSD 5.0

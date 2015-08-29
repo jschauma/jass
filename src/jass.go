@@ -55,10 +55,11 @@ var LDAPFIELD = ""
 var LDAPSEARCH = ""
 
 /* You can enable default URLs here, if you so choose. */
+var KEYKEEPER_URL = ""
 
 var URLS = map[string]*KeyURL{
 	"GitHub":    {"https://github.com/<user>.keys", false},
-	"KeyKeeper": {"https://keykeeper.corp.yahoo.com/v2/api/keys?user=<user>", false},
+	"KeyKeeper": {KEYKEEPER_URL, false},
 }
 
 /* You should not need to make any changes below this line. */
@@ -71,7 +72,7 @@ const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 const OPENSSH_DSS_KEY_SUBSTRING = "ssh-dss AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "3.2"
+const VERSION = "4.0"
 
 var ACTION = "encrypt"
 
@@ -126,6 +127,8 @@ func main() {
 		encrypt()
 	} else if ACTION == "decrypt" {
 		decrypt()
+	} else if ACTION == "list" {
+		list()
 	}
 }
 
@@ -657,8 +660,6 @@ func getopts() {
 			os.Exit(EXIT_SUCCESS)
 		case "-G":
 			URLS["GitHub"].Enabled = true
-		case "-K":
-			URLS["KeyKeeper"].Enabled = true
 		case "-d":
 			ACTION = "decrypt"
 		case "-e":
@@ -682,6 +683,8 @@ func getopts() {
 			eatit = true
 			argcheck("-k", args, i)
 			KEY_FILES[args[i+1]] = true
+		case "-l":
+			ACTION = "list"
 		case "-p":
 			eatit = true
 			argcheck("-p", args, i)
@@ -809,6 +812,11 @@ func identifyCorrectSessionKeyData(privfp string, keys map[string]string) (skey 
 	return
 }
 
+func list() {
+	verbose("Listing recipients from input...", 2)
+	parseEncryptedInput()
+}
+
 func padBuffer(buf []byte) (padded []byte) {
 	/* We will uses PKCS7 padding: The value of each added byte is the
 	 * number of bytes that are added, i.e. N bytes, each of value N
@@ -876,6 +884,9 @@ func parseEncryptedInput() (message string, keys map[string]string, version stri
 			case field == "version":
 				encoded = &version
 			default:
+				if ACTION == "list" {
+					fmt.Printf("%v\n", field)
+				}
 				encoded = &key
 			}
 		} else if end_re.MatchString(line) {
@@ -1109,9 +1120,8 @@ func unpadBuffer(buf []byte) (unpadded []byte) {
 }
 
 func usage(out io.Writer) {
-	usage := `Usage: %v [-GVdehv] [-f file] [-g group] [-k key] [-p passin] [-u user]
+	usage := `Usage: %v [-GVdehlv] [-f file] [-g group] [-k key] [-p passin] [-u user]
 	-G        search for user keys on GitHub
-	-K        search for user keys on KeyKeeper
 	-V        print version information and exit
 	-d        decrypt
 	-e        encrypt (default)
@@ -1119,6 +1129,7 @@ func usage(out io.Writer) {
 	-g group  encrypt for members of this group
 	-h        print this help and exit
 	-k key    encrypt using this public key file
+	-l        list recipients
 	-p passin pass:passphrase, env:envvar, file:filename
 	-u user   encrypt for this user
 	-v        be verbose
@@ -1167,11 +1178,19 @@ func varCheck() {
 		LDAPSEARCH = ldapsearch
 	}
 
+	keykeeper_url := os.Getenv("KEYKEEPER_URL")
+	if len(keykeeper_url) > 1 {
+		URLS["KeyKeeper"].Url = keykeeper_url
+		URLS["KeyKeeper"].Enabled = true
+	}
+
 	switch ACTION {
 	case "decrypt":
 		varCheckDecrypt()
 	case "encrypt":
 		varCheckEncrypt()
+	case "list":
+		varCheckList()
 	}
 }
 
@@ -1237,5 +1256,16 @@ func varCheckEncrypt() {
 		}
 	} else if len(RECIPIENTS) == 0 && len(GROUPS) == 0 {
 		fail("You need to provide either a key file, a group, or a username.\n")
+	}
+}
+
+func varCheckList() {
+	verbose("Checking that all variables look ok for listing...", 2)
+	if len(RECIPIENTS) != 0 || len(GROUPS) != 0 {
+		fail("You cannot specify any recipients when listing recipients.\n")
+	}
+
+	if len(KEY_FILES) > 0 {
+		fail("You cannot specify any keys when listing recipients.\n")
 	}
 }

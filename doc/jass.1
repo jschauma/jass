@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd April 20, 2015
+.Dd August 28, 2015
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -10,7 +10,7 @@
 .Nd just another secret sharer
 .Sh SYNOPSIS
 .Nm
-.Op Fl GKVdehv
+.Op Fl GVdehlv
 .Op Fl f Ar file
 .Op Fl g Ar group
 .Op Fl k Ar key
@@ -26,11 +26,9 @@ for the given key or user.
 .Sh OPTIONS
 The following options are supported by
 .Nm :
-.Bl -tag -width _u_user_
+.Bl -tag -width _p_passin_
 .It Fl G
 Also look for public keys on GitHub.
-.It Fl K
-Also look for public keys on KeyKeeper.
 .It Fl V
 Print version number and exit.
 .It Fl e
@@ -50,6 +48,8 @@ Print a short help message and exit.
 .It Fl k Ar key
 Encrypt or decrypt the input using the key(s) found in
 .Ar key .
+.It Fl l
+List recipients of the encrypted input.
 .It Fl p Ar passin
 Specify the method to retrieve the passphrase for the private key.
 See
@@ -89,17 +89,22 @@ If
 was specified,
 .Nm
 will expand the given group to individual users.
+.Pp
 For each user,
 .Nm
 will first look for that user's ~/.ssh/authorized_keys file, then the file
 /etc/ssh/authorized_keys/<user>.
+.Pp
 If neither of these is readable, and LDAP is configured as a default,
-it will look for the field 'twSSHPubkey' for the given username in LDAP.
+it will look for the field designated by the
+.Ar LDAPFIELD
+environment variable for the given username in LDAP.
 .Pp
 Alternatively,
 .Nm
 may look on a 'KeyKeeper' server for the public key associated with the
 user.
+(See the section KEYKEEPER SERVER for details.)
 .Pp
 If a usable pubkey was still not found,
 .Nm
@@ -117,12 +122,13 @@ consists of several
 .Xr uuencode 1 Ns ed
 files.
 The first is the encrypted message, the following files the session key
-encrypted for each of the public keys.
+encrypted for each of the public keys, followed by
+version information.
 .Nm
-will properly extract, decode and use these when the
+will properly extract, decode and use the session
+suitable key when the
 .Fl d
-flag is specified, though it should be noted that the decrypted session
-key briefly lives on the disk in a temporary directory.
+flag is specified.
 .Pp
 When decrypting, if no key is specified via the
 .Fl k
@@ -153,6 +159,38 @@ refer to a device or named pipe.
 Note that standard Unix file access controls should be used to protect
 this file.
 .El
+.Sh KEYKEEPER SERVER
+.Nm
+can query a "KeyKeeper" server to retrieve public SSH
+keys.
+The URL to retrieve keys on a per-user basis is
+derived from the
+.Ar KEYKEEPER_URL
+environment variable.
+.Pp
+When doing so, it expects the server to respond with
+JSON data in the format of:
+.Bd -literal -offset indent
+{
+  "result" : {
+    "keys" : {
+      "key" : [
+        {
+          "trust"     : "string",
+          "content"   : "ssh-rsa AAAAB3NzaC1...",
+          "sudo"      : "string",
+          "type"      : "string",
+          "validated" : "string",
+          "api"       : "string"
+        },
+        ...
+      ]
+    },
+    "status" : "string",
+    "user"   : "string"
+  }
+}
+.Ed
 .Sh EXAMPLES
 To generate a secret message encrypted with the file 'bobs_pubkey' and
 store it in the file 'secret':
@@ -197,6 +235,21 @@ SSHPubkey
 .It LDAPSEARCH
 ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
 .El
+.Pp
+You may also set the KEYKEEPER_URL environment
+variable to a URL to be used as a KeyKeeper service.
+The string "<user>" will be replaced by the
+.Fl u
+argument.
+.Pp
+Setting this environment variable simultaneously
+enables a lookup of user keys using this KeyKeeper
+service.
+For example:
+.Bd -literal -offset indent
+$ export KEYKEEPER_URL="https://keykeeper.tld/keys?user=<user>"
+$ jass -u jdoe <data
+.Ed
 .Sh SEE ALSO
 .Xr enc 1 ,
 .Xr openssl 1 ,

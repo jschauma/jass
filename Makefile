@@ -42,6 +42,7 @@ linux_binary:
 	ssh ${HOST} "cd ${NAME}/src && rm -f ${NAME} && go build jass.go"
 
 packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm: spec linux_binary
+	mkdir -p packages/rpms
 	ssh ${HOST} "cd ${NAME}/rpm && sh mkrpm.sh ${NAME}.spec"
 	scp ${HOST}:redhat/RPMS/*/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm packages/rpms/
 	ls packages/rpms/${NAME}-${VERSION}-${RPMREV}.x86_64.rpm
@@ -72,6 +73,7 @@ release: version osx/${NAME}-${VERSION}.dmg.asc packages/rpms/${NAME}-${VERSION}
 	cd packages/dmgs && ln -f ${NAME}-${VERSION}.dmg.asc ${NAME}.dmg.asc
 
 version:
+	mkdir -p packages
 	echo ${VERSION} > packages/version
 
 prep: .prepdone
