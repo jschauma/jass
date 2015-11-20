@@ -72,7 +72,7 @@ const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 const OPENSSH_DSS_KEY_SUBSTRING = "ssh-dss AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "4.0"
+const VERSION = "4.1"
 
 var ACTION = "encrypt"
 
