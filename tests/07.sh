@@ -2,6 +2,11 @@
 
 . ./setup
 
+if [ -z "${ALL}" ]; then
+	echo "Skipping compatibility with ${HOST}..."
+	exit 0
+fi
+
 # replace this with the hostname of a jumpbox or similar where you have a
 # copy of jass installed and you wish to test backwards compatibility
 HOST="jumpbox"

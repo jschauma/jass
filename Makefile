@@ -18,7 +18,10 @@ help:
 	@echo "release    get everything ready for a new release"
 	@echo "rpm        build an RPM of ${NAME}-${VERSION}-${RPMREV} on ${HOST}"
 	@echo "sign       sign the RPM and OS X package"
-	@echo "test       run all tests under tests/"
+	@echo "test       run tests under tests/"
+	@echo "           set NO_LDAP=1 to skip LDAP related tests"
+	@echo "           set KEYKEEPER_URL to test KeyKeeper functionality"
+	@echo "           set ALL=1 to run all tests"
 	@echo "uninstall  uninstall ${NAME} from ${PREFIX}"
 	@echo "upload     upload packages to ${PUBHOST}"
 

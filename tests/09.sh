@@ -6,7 +6,7 @@ NAME="handles GitHub keys"
 
 begin
 
-echo "${MSG}" | ${JASS} -G -u ${USER} >/dev/null 2>>${STDERR}
+echo "${MSG}" | ${JASS} -G -u jschauma >/dev/null 2>>${STDERR}
 if [ $? -gt 0 ]; then
 	fail
 fi
