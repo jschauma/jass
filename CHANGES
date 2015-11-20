@@ -1,3 +1,9 @@
+* Fri Nov 20 2015 - jschauma@netmeister.org
+- 4.1
+-  be more lenient in detecting the right session key
+   data (PR #12 from directionless)
+-  improve test harness to allow selective testing
+
 * Fri Aug 28 2015 - jschauma@yahoo-inc.com
 - 4.0
 -  remove '-K' option; enable use of KeyKeeper via the
