@@ -4,7 +4,7 @@
 
 NAME="encrypt for a group we're not a member of"
 
-if [ -n "${NO_LDAP}" -a -z "${ALL}" ]; then
+if [ -z "${DO_LDAP}" -a -z "${ALL}" ]; then
 	echo "Skipping LDAP group test..."
 	exit 0
 fi

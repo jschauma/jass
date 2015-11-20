@@ -2,7 +2,7 @@
 
 . ./setup
 
-if [ -n "${NO_LDAP}" -a -z "${ALL}" ]; then
+if [ -z "${DO_LDAP}" -a -z "${ALL}" ]; then
 	echo "Skipping LDAP test..."
 	exit 0
 fi
