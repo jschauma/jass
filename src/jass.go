@@ -795,7 +795,7 @@ func identifyCorrectSessionKeyData(privfp string, keys map[string]string) (skey 
 	verbose("Identifying correct session key data...", 2)
 
 	/* fingerprints may be "user-fi:ng:er:pr:in:t" or "fi:ng:er:pr:in:t" */
-	fp_pattern := regexp.MustCompile("^([^-]+-)?(?P<fp>[a-f0-9:]+)")
+	fp_pattern := regexp.MustCompile("^(.+-)?(?P<fp>[[:xdigit:]:]+)$")
 
 	for r, key := range keys {
 		fp := fp_pattern.FindStringSubmatch(r)[2]
