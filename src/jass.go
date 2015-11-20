@@ -794,7 +794,7 @@ func getpassFromUser(prompt string) (pass []byte) {
 func identifyCorrectSessionKeyData(privfp string, keys map[string]string) (skey []byte) {
 	verbose("Identifying correct session key data...", 2)
 
-	/* fingerprints may be "user-fi:ng:er:pr:in:t" or "fi:ng:er:pr:in:t" */
+	/* fingerprints may be "anything-fi:ng:er:pr:in:t" or "fi:ng:er:pr:in:t" */
 	fp_pattern := regexp.MustCompile("^(.+-)?(?P<fp>[[:xdigit:]:]+)$")
 
 	for r, key := range keys {
