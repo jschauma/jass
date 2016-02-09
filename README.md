@@ -6,6 +6,30 @@ another external keyserver.
 
 Please see below for further details.
 
+Installing jass
+---------------
+
+If you run an x86-64 based RPM based Linux version, you can download an
+RPM of jass(1) from [here](https://www.netmeister.org/apps/jass-4.1-1.x86_64.rpm)
+([gpg signature](https://www.netmeister.org/apps/jass-4.1-1.x86_64.rpm.asc)).
+
+If you run OS X, you can download a DMG installer from
+[here](https://www.netmeister.org/apps/jass-4.1.dmg) ([gpg
+signature](https://www.netmeister.org/apps/jass-4.1.dmg.asc)).
+
+The PGP signatures are created using [this PGP
+key](https://pgp.mit.edu/pks/lookup?op=get&search=0x66CE4FE96F6BD3D7).
+
+If you want to build jass(1) yourself, you can run:
+```
+git clone git@github.com:jschauma/jass.git
+cd jass
+make install
+```
+
+This will copy the binary and manual page under /usr/local or wherever
+PREFIX points to.
+
 
 Sharing Secrets
 ===============
@@ -81,18 +105,6 @@ of:
   }
 }
 ```
-
-
-
-How to install jass(1)
-======================
-Just copy the manual page from doc/jass.1 to somewhere in your MANPATH;
-'go build src/jass.go' and copy the resulting binary somewhere in your
-PATH.
-
-The simplistic provided Makefile will copy those files under /usr/local or
-wherever PREFIX points to if you run 'make install'.
-
 
 How to use jass(1)
 ==================
