@@ -22,7 +22,7 @@ key](https://pgp.mit.edu/pks/lookup?op=get&search=0x66CE4FE96F6BD3D7).
 
 If you want to build jass(1) yourself, you can run:
 ```
-git clone git@github.com:jschauma/jass.git
+git clone https://github.com/jschauma/jass.git
 cd jass
 make install
 ```
