@@ -10,12 +10,12 @@ Installing jass
 ---------------
 
 If you run an x86-64 based RPM based Linux version, you can download an
-RPM of jass(1) from [here](https://www.netmeister.org/apps/jass-4.1-1.x86_64.rpm)
-([gpg signature](https://www.netmeister.org/apps/jass-4.1-1.x86_64.rpm.asc)).
+RPM of jass(1) from [here](https://www.netmeister.org/apps/jass-5.0-1.x86_64.rpm)
+([gpg signature](https://www.netmeister.org/apps/jass-5.0-1.x86_64.rpm.asc)).
 
 If you run OS X, you can download a DMG installer from
-[here](https://www.netmeister.org/apps/jass-4.1.dmg) ([gpg
-signature](https://www.netmeister.org/apps/jass-4.1.dmg.asc)).
+[here](https://www.netmeister.org/apps/jass-5.0.dmg) ([gpg
+signature](https://www.netmeister.org/apps/jass-5.0.dmg.asc)).
 
 The PGP signatures are created using [this PGP
 key](https://pgp.mit.edu/pks/lookup?op=get&search=0x66CE4FE96F6BD3D7).
