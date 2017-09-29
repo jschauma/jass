@@ -82,7 +82,7 @@ GitHub Service
 
 jass(1) can query a GitHub server to retrieve public SSH keys.  When
 doing so, it expects the keys to be available under the URL
-http://${GITHUB_URL}/<user>.keys.
+http://${GITHUB_URL}/&lt;user&gt;.keys.
 
 This URL can be set in the environment.
 
