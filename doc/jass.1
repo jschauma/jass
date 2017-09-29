@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd August 28, 2015
+.Dd September 28, 2017
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -10,7 +10,7 @@
 .Nd just another secret sharer
 .Sh SYNOPSIS
 .Nm
-.Op Fl GVdehlv
+.Op Fl Vdehlv
 .Op Fl f Ar file
 .Op Fl g Ar group
 .Op Fl k Ar key
@@ -27,8 +27,6 @@ for the given key or user.
 The following options are supported by
 .Nm :
 .Bl -tag -width _p_passin_
-.It Fl G
-Also look for public keys on GitHub.
 .It Fl V
 Print version number and exit.
 .It Fl e
@@ -102,15 +100,9 @@ environment variable for the given username in LDAP.
 .Pp
 Alternatively,
 .Nm
-may look on a 'KeyKeeper' server for the public key associated with the
-user.
-(See the section KEYKEEPER SERVER for details.)
-.Pp
-If a usable pubkey was still not found,
-.Nm
-may then look for a key on the internet, for example on GitHub if the
-.Fl G
-flag was specified.
+may look on a 'KeyKeeper' server or on an internal or
+public GitHub service for the public key associated with
+the user.
 .Pp
 Eventually,
 .Nm
@@ -191,6 +183,11 @@ JSON data in the format of:
   }
 }
 .Ed
+.Sh GITHUB SERVICE
+.Nm
+can look for public SSH keys on a GitHub service.
+The URL to use for this can be set via the GITHUB_URL
+environment variable.
 .Sh EXAMPLES
 To generate a secret message encrypted with the file 'bobs_pubkey' and
 store it in the file 'secret':
@@ -229,16 +226,20 @@ You can either edit the script and set them in there, or export them in
 your environment.
 .Pp
 The following are example values.
-.Bl -tag -width LDAPSEARCH_
+.Bl -tag -width KEYKEEPER_URL_
 .It LDAPFIELD
 SSHPubkey
 .It LDAPSEARCH
 ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
+.It KEYKEEPER_URL
+https://keykeeper.tld/keys?user=<user>
+.It GITHUB_URL
+https://git.your.internal.site
 .El
 .Pp
-You may also set the KEYKEEPER_URL environment
-variable to a URL to be used as a KeyKeeper service.
-The string "<user>" will be replaced by the
+When setting the KEYKEEPER_URL environment
+variable to a URL to be used as a KeyKeeper service,
+the string "<user>" will be replaced by the
 .Fl u
 argument.
 .Pp
@@ -248,6 +249,14 @@ service.
 For example:
 .Bd -literal -offset indent
 $ export KEYKEEPER_URL="https://keykeeper.tld/keys?user=<user>"
+$ jass -u jdoe <data
+.Ed
+.Pp
+Likewise, retrieving public SSH keys from your
+internal GitHub instance, you could invoke
+.Nm as follows:
+.Bd -literal -offset indent
+$ export GITHUB_URL="https://git.your.internal.site/"
 $ jass -u jdoe <data
 .Ed
 .Sh SEE ALSO

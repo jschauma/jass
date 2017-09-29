@@ -55,10 +55,11 @@ var LDAPFIELD = ""
 var LDAPSEARCH = ""
 
 /* You can enable default URLs here, if you so choose. */
+var GITHUB_URL = "https://github.com/<user>.keys"
 var KEYKEEPER_URL = ""
 
 var URLS = map[string]*KeyURL{
-	"GitHub":    {"https://github.com/<user>.keys", false},
+	"GitHub":    {GITHUB_URL, false},
 	"KeyKeeper": {KEYKEEPER_URL, false},
 }
 
@@ -72,7 +73,7 @@ const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 const OPENSSH_DSS_KEY_SUBSTRING = "ssh-dss AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "4.1"
+const VERSION = "5.0"
 
 var ACTION = "encrypt"
 
@@ -658,8 +659,6 @@ func getopts() {
 		case "-V":
 			printVersion()
 			os.Exit(EXIT_SUCCESS)
-		case "-G":
-			URLS["GitHub"].Enabled = true
 		case "-d":
 			ACTION = "decrypt"
 		case "-e":
@@ -1120,8 +1119,7 @@ func unpadBuffer(buf []byte) (unpadded []byte) {
 }
 
 func usage(out io.Writer) {
-	usage := `Usage: %v [-GVdehlv] [-f file] [-g group] [-k key] [-p passin] [-u user]
-	-G        search for user keys on GitHub
+	usage := `Usage: %v [-Vdehlv] [-f file] [-g group] [-k key] [-p passin] [-u user]
 	-V        print version information and exit
 	-d        decrypt
 	-e        encrypt (default)
@@ -1178,10 +1176,30 @@ func varCheck() {
 		LDAPSEARCH = ldapsearch
 	}
 
-	keykeeper_url := os.Getenv("KEYKEEPER_URL")
+	keykeeper_url, found := os.LookupEnv("KEYKEEPER_URL")
 	if len(keykeeper_url) > 1 {
 		URLS["KeyKeeper"].Url = keykeeper_url
 		URLS["KeyKeeper"].Enabled = true
+	} else if found {
+		URLS["KeyKeeper"].Enabled = false
+	}
+
+	github_url, found := os.LookupEnv("GITHUB_URL")
+	if len(github_url) > 1 {
+		if !strings.HasPrefix(github_url, "http://") &&
+			!strings.HasPrefix(github_url, "https://") {
+			github_url = "https://" + github_url
+		}
+		if !strings.HasSuffix(github_url, "/<user>.keys") {
+			if !strings.HasSuffix(github_url, "/") {
+				github_url += "/"
+			}
+			github_url += "<user>.keys"
+		}
+		URLS["GitHub"].Url = github_url
+		URLS["GitHub"].Enabled = true
+	} else if found {
+		URLS["GitHub"].Enabled = false
 	}
 
 	switch ACTION {

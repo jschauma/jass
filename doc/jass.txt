@@ -4,7 +4,7 @@ NAME
      jass -- just another secret sharer
 
 SYNOPSIS
-     jass [-GVdehlv] [-f file] [-g group] [-k key] [-p passin] [-u user]
+     jass [-Vdehlv] [-f file] [-g group] [-k key] [-p passin] [-u user]
 
 DESCRIPTION
      The jass tool allows you to share a secret with other people through the
@@ -13,8 +13,6 @@ DESCRIPTION
 
 OPTIONS
      The following options are supported by jass:
-
-     -G		 Also look for public keys on GitHub.
 
      -V		 Print version number and exit.
 
@@ -65,12 +63,8 @@ DETAILS
      will look for the field designated by the LDAPFIELD environment variable
      for the given username in LDAP.
 
-     Alternatively, jass may look on a 'KeyKeeper' server for the public key
-     associated with the user.	(See the section KEYKEEPER SERVER for
-     details.)
-
-     If a usable pubkey was still not found, jass may then look for a key on
-     the internet, for example on GitHub if the -G flag was specified.
+     Alternatively, jass may look on a 'KeyKeeper' server or on an internal or
+     public GitHub service for the public key associated with the user.
 
      Eventually, jass will attempt to encrypt the data for each of the public
      keys found.
@@ -130,6 +124,10 @@ KEYKEEPER SERVER
 	     }
 	   }
 
+GITHUB SERVICE
+     jass can look for public SSH keys on a GitHub service.  The URL to use
+     for this can be set via the GITHUB_URL environment variable.
+
 EXAMPLES
      To generate a secret message encrypted with the file 'bobs_pubkey' and
      store it in the file 'secret':
@@ -162,18 +160,29 @@ ENVIRONMENT
 
      The following are example values.
 
-     LDAPFIELD	  SSHPubkey
+     LDAPFIELD	     SSHPubkey
 
-     LDAPSEARCH	  ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
+     LDAPSEARCH	     ldapsearch -LLLxh ldap.yourdomain.com -b dc=exam-
+		     ple,dc=com
 
-     You may also set the KEYKEEPER_URL environment variable to a URL to be
-     used as a KeyKeeper service.  The string "<user>" will be replaced by the
-     -u argument.
+     KEYKEEPER_URL   https://keykeeper.tld/keys?user=<user>
+
+     GITHUB_URL	     https://git.your.internal.site
+
+     When setting the KEYKEEPER_URL environment variable to a URL to be used
+     as a KeyKeeper service, the string "<user>" will be replaced by the -u
+     argument.
 
      Setting this environment variable simultaneously enables a lookup of user
      keys using this KeyKeeper service.	 For example:
 
 	   $ export KEYKEEPER_URL="https://keykeeper.tld/keys?user=<user>"
+	   $ jass -u jdoe <data
+
+     Likewise, retrieving public SSH keys from your internal GitHub instance,
+     you could invoke as follows:
+
+	   $ export GITHUB_URL="https://git.your.internal.site/"
 	   $ jass -u jdoe <data
 
 SEE ALSO
@@ -191,4 +200,4 @@ HISTORY
      jass was originally written by Jan Schaumann <jschauma@netmeister.org> in
      April 2013.
 
-NetBSD 5.0			August 28, 2015			    NetBSD 5.0
+NetBSD 7.0		      September 28, 2017		    NetBSD 7.0
