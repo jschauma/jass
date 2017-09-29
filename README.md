@@ -64,10 +64,9 @@ also available in the 'src' directory.)
 
 jass(1) was tested on the following systems:
 
-- CentOS release 5 and 6
-- RedHat Enterprise Linux 6.5
-- Mac OS X 10.10.3
-- NetBSD 6.0.1
+- RedHat Enterprise Linux 6.8
+- Mac OS X 10.12.6
+- NetBSD 7.0.2
 
 Finding keys
 ============
@@ -77,6 +76,16 @@ members of a Unix group from LDAP or a keyserver.
 
 You can specify the default method in the sources prior to building
 jass(1); support for a configuration file may be added in the future.
+
+GitHub Service
+--------------
+
+jass(1) can query a GitHub server to retrieve public SSH keys.  When
+doing so, it expects the keys to be available under the URL
+http://${GITHUB_URL}/<user>.keys.
+
+This URL can be set in the environment.
+
 
 KeyKeeper Server
 ----------------
