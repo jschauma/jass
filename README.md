@@ -4,35 +4,24 @@ jass(1) is a tool to let you encrypt/decrypt data using SSH keys.  Keys
 can be provided locally, fetched from LDAP, or retrieved from GitHub or
 another external keyserver.
 
-Please see below for further details.
+Encryption:
 
-Installing jass
----------------
+    $ jass -u jschauma <service.yml | \
+            mail -s "Please do the needful!" jschauma
 
-If you run an x86-64 based RPM based Linux version, you can download an
-RPM of jass(1) from [here](https://www.netmeister.org/apps/jass-5.0-1.x86_64.rpm)
-([gpg signature](https://www.netmeister.org/apps/jass-5.0-1.x86_64.rpm.asc)).
+Decryption:
 
-If you run OS X, you can download a DMG installer from
-[here](https://www.netmeister.org/apps/jass-5.0.dmg) ([gpg
-signature](https://www.netmeister.org/apps/jass-5.0.dmg.asc)).
+    jass -d -k ~/.ssh/privkey <secret
 
-The PGP signatures are created using [this PGP
-key](https://pgp.mit.edu/pks/lookup?op=get&search=0x66CE4FE96F6BD3D7).
+Please see the
+[manual page](https://github.com/jschauma/jass/blob/master/doc/jass.txt)
+for further details.
 
-If you want to build jass(1) yourself, you can run:
-```
-git clone https://github.com/jschauma/jass.git
-cd jass
-make install
-```
-
-This will copy the binary and manual page under /usr/local or wherever
-PREFIX points to.
-
+Details
+========
 
 Sharing Secrets
-===============
+---------------
 Every now and then we have a need to share a "secret" with some
 co-workers.  Coordinating this can be problematic, since you would either
 need to be in the same physical space at the same time, or you would need
@@ -43,7 +32,7 @@ Wouldn't it be nice if you could just attach the file in question to an
 email, insert it into a ticketing system, or drop it on a shared host?
 
 Using SSH Keys
-==============
+--------------
 Many organizations already use SSH keys for access to their hosts. That is,
 you have a central place (local file systems on shared hosts as well as,
 perhaps, LDAP) where you have public keys that you already trust to belong
@@ -55,21 +44,8 @@ non-SSH related data.
 jass(1) does just that.  It supports encryption for multiple keys and
 should generally be reasonably "user friendly".
 
-
-Supported Platforms
-===================
-jass(1) is written in Go, so it should run pretty much anywhere that you
-can build a binary for.  (An older version of jass(1) written in shell is
-also available in the 'src' directory.)
-
-jass(1) was tested on the following systems:
-
-- RedHat Enterprise Linux 6.8
-- Mac OS X 10.12.6
-- NetBSD 7.0.2
-
 Finding keys
-============
+------------
 You can specify the public key(s) to encrypt data for on the command-line.
 Alternatively, jass(1) can try to fetch the key(s) for a given user or
 members of a Unix group from LDAP or a keyserver.
@@ -79,7 +55,6 @@ jass(1); support for a configuration file may be added in the future.
 
 GitHub Service
 --------------
-
 jass(1) can query a GitHub server to retrieve public SSH keys.  When
 doing so, it expects the keys to be available under the URL
 http://${GITHUB_URL}/&lt;user&gt;.keys.
@@ -130,11 +105,13 @@ If you do not have a user named 'jschauma' on your local systems, nor in
 LDAP (if you set that up), then you can ask jass(1) to look that user's
 key on GitHub by specifying the '-G' flag:
 
-For example, to encrypt a message for Linus Torvalds, you might run:
+For example, to encrypt a message for Linus Torvalds
+using his GitHub key, you might run:
 
     $ echo "0-day in ext4, ping me for details" | jass -G -u torvalds
 
-Please see the manual page for details and other examples.
+Please see the [manual page](https://github.com/jschauma/jass/blob/master/doc/jass.txt)
+for details and other examples.
 
 Decrypting data
 ---------------
@@ -144,6 +121,43 @@ instead is likely to occur on your desktop, laptop or other private
 system:
 
     jass -d -k ~/.ssh/privkey <secret
+
+Installing jass
+===============
+
+If you run an x86-64 based RPM based Linux version, you can download an
+RPM of jass(1) from [here](https://www.netmeister.org/apps/jass-5.0-1.x86_64.rpm)
+([gpg signature](https://www.netmeister.org/apps/jass-5.0-1.x86_64.rpm.asc)).
+
+If you run OS X, you can download a DMG installer from
+[here](https://www.netmeister.org/apps/jass-5.0.dmg) ([gpg
+signature](https://www.netmeister.org/apps/jass-5.0.dmg.asc)).
+
+The PGP signatures are created using [this PGP
+key](https://pgp.mit.edu/pks/lookup?op=get&search=0x66CE4FE96F6BD3D7).
+
+If you want to build jass(1) yourself, you can run:
+```
+git clone https://github.com/jschauma/jass.git
+cd jass
+make install
+```
+
+This will copy the binary and manual page under /usr/local or wherever
+PREFIX points to.
+
+
+Supported Platforms
+-------------------
+jass(1) is written in Go, so it should run pretty much anywhere that you
+can build a binary for.  (An older version of jass(1) written in shell is
+also available in the 'src' directory.)
+
+jass(1) was tested on the following systems:
+
+- RedHat Enterprise Linux 6.8
+- Mac OS X 10.12.6
+- NetBSD 7.0.2
 
 FAQ
 ===
