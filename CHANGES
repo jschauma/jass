@@ -1,3 +1,9 @@
+* Fri Nov 10 2017 - jschauma@netmeister.org
+- 5.1
+-  switch to using GitHub API for key retrieval
+-  allow basic auth via the GITHUB_API_TOKEN
+   environment variable
+
 * Thu Sep 28 2017 - jschauma@netmeister.org
 - 5.0
 -  remove '-G' option; enable use of GitHub via the

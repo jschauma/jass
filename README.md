@@ -55,11 +55,13 @@ jass(1); support for a configuration file may be added in the future.
 
 GitHub Service
 --------------
-jass(1) can query a GitHub server to retrieve public SSH keys.  When
-doing so, it expects the keys to be available under the URL
-http://${GITHUB_URL}/&lt;user&gt;.keys.
+jass(1) can query a GitHub server to retrieve public SSH keys by
+pointing the GITHUB_URL environment variable to the appropriate
+API end point (e.g. https://api.github.com/users/&lt;user&gt;/keys).
 
-This URL can be set in the environment.
+If you are using an internal GitHub service and require authentication,
+you can set the GITHUB_API_TOKEN environment variable to enable
+Basic HTTP Auth.
 
 
 KeyKeeper Server
@@ -108,7 +110,7 @@ key on GitHub by specifying the '-G' flag:
 For example, to encrypt a message for Linus Torvalds
 using his GitHub key, you might run:
 
-    $ echo "0-day in ext4, ping me for details" | jass -G -u torvalds
+    $ echo "0-day in ext4, ping me for details" | jass -u torvalds
 
 Please see the [manual page](https://github.com/jschauma/jass/blob/master/doc/jass.txt)
 for details and other examples.

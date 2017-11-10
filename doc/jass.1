@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd September 28, 2017
+.Dd November 10, 2017
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -56,7 +56,7 @@ for details.
 Defaults to interactively prompt on the controlling tty.
 .It Fl u Ar user
 Encrypt the input for this user, attempting to find suitable public SSH
-keys on the local system or from LDAP.
+keys on the local system or from LDAP or the enabled URLs.
 .It Fl v
 Be verbose.
 Can be specified multiple times.
@@ -188,6 +188,32 @@ JSON data in the format of:
 can look for public SSH keys on a GitHub service.
 The URL to use for this can be set via the GITHUB_URL
 environment variable.
+.Pp
+If you use an internal GitHub instance that requires
+authentication, then
+.Nm
+can make use of the
+.Ar GITHUB_API_TOKEN
+environment variable.
+If set,
+.Nm
+will use it to set the Basic HTTP Authentication
+header 'Authorization' using the current user's
+username.
+.Pp
+When parsing GitHub data,
+.Nm
+will assume that the result will be JSON data in the
+format of:
+.Bd -literal -offset -indent
+[
+ {
+   "id": 12345,
+   "key": "ssh-rsa AAAAB3NzaC1...",
+ },
+ ...
+]
+.Ed
 .Sh EXAMPLES
 To generate a secret message encrypted with the file 'bobs_pubkey' and
 store it in the file 'secret':
@@ -218,6 +244,14 @@ To encrypt data for multiple recipients:
 .Bd -literal -offset indent
 jass -u user1 -u user2 -u user3 <data
 .Ed
+.Pp
+To encrypt data using the internal GitHub instance
+with Basic HTTP Auth:
+.Bd -literal -offset indent
+export GITHUB_URL="https://git.example.com/api/v3/users/<user>/keys"
+export GITHUB_API_TOKEN="abcdef0123456789abcdef0123456789abcdef01"
+jass -u user1 <data
+.Ed
 .Sh ENVIRONMENT
 When attempting to query LDAP for public keys,
 .Nm
@@ -226,7 +260,7 @@ You can either edit the script and set them in there, or export them in
 your environment.
 .Pp
 The following are example values.
-.Bl -tag -width KEYKEEPER_URL_
+.Bl -tag -width GITHUB_API_TOKEN_
 .It LDAPFIELD
 SSHPubkey
 .It LDAPSEARCH
@@ -234,7 +268,9 @@ ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
 .It KEYKEEPER_URL
 https://keykeeper.tld/keys?user=<user>
 .It GITHUB_URL
-https://git.your.internal.site
+https://api.github.com/users/<user>/keys
+.It GITHUB_API_TOKEN
+abcdef0123456789abcdef0123456789abcdef01
 .El
 .Pp
 When setting the KEYKEEPER_URL environment
@@ -254,9 +290,10 @@ $ jass -u jdoe <data
 .Pp
 Likewise, retrieving public SSH keys from your
 internal GitHub instance, you could invoke
-.Nm as follows:
+.Nm
+as follows:
 .Bd -literal -offset indent
-$ export GITHUB_URL="https://git.your.internal.site/"
+$ export GITHUB_URL="https://git.your.internal.site/api/v3/users/<user>/keys"
 $ jass -u jdoe <data
 .Ed
 .Sh SEE ALSO

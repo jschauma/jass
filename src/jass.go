@@ -55,11 +55,11 @@ var LDAPFIELD = ""
 var LDAPSEARCH = ""
 
 /* You can enable default URLs here, if you so choose. */
-var GITHUB_URL = "https://github.com/<user>.keys"
+var GITHUB_URL = "https://api.github.com/users/<user>/keys"
 var KEYKEEPER_URL = ""
 
 var URLS = map[string]*KeyURL{
-	"GitHub":    {GITHUB_URL, false},
+	"GitHub":    {GITHUB_URL, true},
 	"KeyKeeper": {KEYKEEPER_URL, false},
 }
 
@@ -73,7 +73,7 @@ const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 const OPENSSH_DSS_KEY_SUBSTRING = "ssh-dss AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "5.0"
+const VERSION = "5.1"
 
 var ACTION = "encrypt"
 
@@ -89,6 +89,11 @@ type KeyURL struct {
 type SSHKey struct {
 	Key         rsa.PublicKey
 	Fingerprint string
+}
+
+type GitHubKeys struct {
+	Id  int
+	Key string
 }
 
 type KeyKeeperKeys struct {
@@ -562,12 +567,15 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 func getPubkeysFromURLs(uname string) (keys []string) {
 	verbose(fmt.Sprintf("Trying to get ssh pubkeys for '%v' from URLs...", uname), 3)
 
+	gitHubApiToken := os.Getenv("GITHUB_API_TOKEN")
+
 	client := new(http.Client)
 
 	for site, keyurl := range URLS {
 		if !keyurl.Enabled {
 			continue
 		}
+
 		url := strings.Replace(keyurl.Url, "<user>", uname, -1)
 		verbose(fmt.Sprintf("Trying to get ssh pubkeys for '%v' from %v (%v)...", uname, site, url), 3)
 
@@ -577,6 +585,16 @@ func getPubkeysFromURLs(uname string) (keys []string) {
 			continue
 		}
 		req.Header.Add("Accept", "text/html,application/xhtml+xml,application/xml,application/json")
+
+		if site == "GitHub" && len(gitHubApiToken) > 0 {
+			usr, err := user.Current()
+			if err != nil {
+				fail(fmt.Sprintf("%v\n", err))
+			}
+			req.SetBasicAuth(usr.Username, gitHubApiToken)
+		}
+
+
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Unable to GET %v: %v\n", url, err)
@@ -591,7 +609,10 @@ func getPubkeysFromURLs(uname string) (keys []string) {
 
 		if site == "KeyKeeper" {
 			keys = append(keys, parseKeyKeeperJson(body)...)
+		} else if site == "GitHub" {
+			keys = append(keys, parseGitHubApiJson(body)...)
 		} else {
+			fmt.Fprintf(os.Stderr, "Unknown URL type, trying to just read the data.\n")
 			keys = append(keys, strings.Split(string(body), "\n")...)
 		}
 	}
@@ -912,9 +933,29 @@ func parseEncryptedInput() (message string, keys map[string]string, version stri
 	return
 }
 
+func parseGitHubApiJson(data []byte) (keys []string) {
+	verbose("Parsing GitHub API json...", 4)
+	verbose(fmt.Sprintf("%v", string(data)), 5)
+
+	var gkeys []GitHubKeys
+	err := json.Unmarshal(data, &gkeys)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to parse json: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", string(data))
+		fmt.Fprintf(os.Stderr, "Maybe you need to set the GITHUB_API_TOKEN environment variable?\n")
+		return
+	}
+
+	for _, k := range gkeys {
+		keys = append(keys, k.Key)
+	}
+
+	return
+}
+
 func parseKeyKeeperJson(data []byte) (keys []string) {
 	verbose("Parsing KeyKeeper json...", 4)
-	verbose(fmt.Sprintf("%v", data), 5)
+	verbose(fmt.Sprintf("%v", string(data)), 5)
 
 	var kkeys KeyKeeperKeys
 	err := json.Unmarshal(data, &kkeys)
