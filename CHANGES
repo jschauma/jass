@@ -1,3 +1,7 @@
+* Tue Oct 23 2018 - jschauma@netmeister.org
+- 5.2
+-  fix GitHub URL handling per Issue#19
+
 * Fri Nov 10 2017 - jschauma@netmeister.org
 - 5.1
 -  switch to using GitHub API for key retrieval

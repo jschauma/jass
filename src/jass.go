@@ -1231,12 +1231,6 @@ func varCheck() {
 			!strings.HasPrefix(github_url, "https://") {
 			github_url = "https://" + github_url
 		}
-		if !strings.HasSuffix(github_url, "/<user>.keys") {
-			if !strings.HasSuffix(github_url, "/") {
-				github_url += "/"
-			}
-			github_url += "<user>.keys"
-		}
 		URLS["GitHub"].Url = github_url
 		URLS["GitHub"].Enabled = true
 	} else if found {

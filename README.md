@@ -55,9 +55,14 @@ jass(1); support for a configuration file may be added in the future.
 
 GitHub Service
 --------------
-jass(1) can query a GitHub server to retrieve public SSH keys by
-pointing the GITHUB_URL environment variable to the appropriate
-API end point (e.g. `https://api.github.com/users/<user>/keys`).
+By default, jass(1) will look for keys for the recipients on GitHub.  It
+does so by retrieving the URL `https://api.github.com/users/<user>/keys`.
+If you prefer this not to happen, set the GITHUB_URL environment variable
+to the empty string.
+
+Alternatively, you can set GITHUB_URL to e.g., an internal GitHub service
+endpoint such as `https://git.your.domain.com/api/v3/users/<user>/keys`,
+and jass(1) will look for keys there.
 
 If you are using an internal GitHub service and require authentication,
 you can set the GITHUB_API_TOKEN environment variable to enable
