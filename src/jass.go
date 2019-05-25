@@ -73,7 +73,7 @@ const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 const OPENSSH_DSS_KEY_SUBSTRING = "ssh-dss AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "5.1"
+const VERSION = "5.3"
 
 var ACTION = "encrypt"
 
@@ -207,7 +207,7 @@ func convertPubkeys() {
 	}
 }
 
-func decode(input string) (decoded []byte) {
+func decodeBase64(input string) (decoded []byte) {
 	verbose("Decoding data...", 2)
 	verbose(fmt.Sprintf("Decoding '%v'...", input), 3)
 
@@ -234,7 +234,7 @@ func decrypt() {
 	skey := identifyCorrectSessionKeyData(privfp, all_skeys)
 	sessionKey := decryptSessionKey(skey, privkey)
 
-	decryptMessage(decode(message), sessionKey)
+	decryptMessage(decodeBase64(message), sessionKey)
 }
 
 func decryptMessage(msg []byte, skey []byte) {
@@ -277,7 +277,7 @@ func decryptSessionKey(skey []byte, privkey *rsa.PrivateKey) (session_key []byte
 
 	session_key, err := rsa.DecryptPKCS1v15(rand.Reader, privkey, skey)
 	if err != nil {
-		fail("Unable to decrypt session key.")
+		fail("Unable to decrypt session key.\n")
 	}
 
 	return
@@ -466,6 +466,76 @@ func getFingerPrint(pubkey rsa.PublicKey) (fp string) {
 	return
 }
 
+
+func getPubkeyFromBlob(blob []byte) (pubkey SSHKey) {
+	/* Based on:
+	 * http://cpansearch.perl.org/src/MALLEN/Convert-SSH2-0.01/lib/Convert/SSH2.pm
+	 * https://gist.github.com/mahmoudimus/1654254,
+	 * http://golang.org/src/pkg/crypto/x509/x509.go
+	 *
+	 * See also: http://www.netmeister.org/blog/ssh2pkcs8.html
+	 *
+	 * The key format is base64 encoded tuples of:
+	 * - four bytes representing the length of the next data field
+	 * - the data field
+	 *
+	 * In practice, for an RSA key, we get:
+	 * - four bytes [0 0 0 7]
+	 * - the string "ssh-rsa" (7 bytes)
+	 * - four bytes
+	 * - the exponent
+	 * - four bytes
+	 * - the modulus
+	 */
+
+	const (
+		keyTypeField = iota
+		exponentField = iota
+		modulusField = iota
+	)
+
+
+	var k rsa.PublicKey
+	n := 0
+	for len(blob) > 4 {
+		dlen := binary.BigEndian.Uint32(blob[:4])
+
+		chunklen := int(dlen) + 4
+		if len(blob) < chunklen {
+			fmt.Fprintf(os.Stderr, "Invalid data while trying to extract public key.\n")
+			fmt.Fprintf(os.Stderr, "Maybe a corrupted key?\n")
+			return
+		}
+
+		data := blob[4:chunklen]
+		blob = blob[chunklen:]
+
+		switch n {
+		case keyTypeField:
+			if ktype := fmt.Sprintf("%s", data); ktype != "ssh-rsa" {
+				fmt.Fprintf(os.Stderr, "Unsupported key type (%v).\n", ktype)
+				return
+			}
+		case exponentField:
+			i := new(big.Int)
+			i.SetString(fmt.Sprintf("0x%v", hex.EncodeToString(data)), 0)
+			k.E = int(i.Int64())
+		case modulusField:
+			i := new(big.Int)
+			/* The value in this field is signed, so the first
+			 * byte should be 0, so we strip it. */
+			i.SetString(fmt.Sprintf("0x%v", hex.EncodeToString(data[1:])), 0)
+			k.N = i
+		}
+		n++
+	}
+
+	pubkey.Key = k
+	pubkey.Fingerprint = getFingerPrint(k)
+	return
+}
+
+
 /* Pubkeys are retrieved by first trying local files, then looking in
  * LDAP, then looking at any URLs.  First match wins: if we have local
  * keys, we do _not_ go and ask LDAP. */
@@ -550,7 +620,7 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 	for _, k := range tkeys {
 		if !strings.Contains(k, " ") {
 			verbose("Decoding base64 encoded key...", 4)
-			decoded := decode(k)
+			decoded := decodeBase64(k)
 			if len(decoded) < 1 {
 				verbose(fmt.Sprintf("Unable to decode key '%v'.\n", k), 4)
 				continue
@@ -620,6 +690,235 @@ func getPubkeysFromURLs(uname string) (keys []string) {
 	return
 }
 
+func getPrivkeyFromOpenSSHBlob(blob []byte) (key *rsa.PrivateKey) {
+	verbose("Extracting RSA private key from 'OPENSSH PRIVATE KEY' blob...", 5)
+
+	var dlen uint32
+	key = new(rsa.PrivateKey)
+
+	/* The decrypted private key data blob has the
+	 * following format:
+	 * - four bytes checkint1
+	 * - four bytes checkint2
+	 * - four bytes length
+	 * - privkey1
+	 * - four bytes length
+	 * - comment1
+	 * - padding
+	 *
+	 * There might be more privkey/comment pairs,
+	 * but we only support a single key at the
+	 * moment, so we don't care.  (That seems
+	 * reasonable, given that OpenSSH doesn't
+	 * support multiple keys as of 2019-05-24
+	 * either.)
+	 *
+	 * The privkey itself consists of:
+	 * - a pubkey
+	 *   - four bytes [0 0 0 7]
+	 *   - the string "ssh-rsa" (7 bytes)
+	 *   - four bytes
+	 *   - the exponent
+	 *   - four bytes
+	 *   - the modulus
+	 * - a private exponent
+	 * - an array of primes (iqmp, p, q)
+	 */
+	const (
+		checkint1Field = iota
+		checkint2Field = iota
+		pubkeyTypeField = iota
+		pubkeyModulusField = iota
+		pubkeyExponentField = iota
+		privkeyExponentField = iota
+		privkeyPrimesIqmp= iota
+		privkeyPrimesP= iota
+		privkeyPrimesQ = iota
+		privkeyComment = iota
+	)
+
+	n := 0
+	var checkint1, checkint2 int
+
+	pubkeyData := map[string][]byte{}
+	for len(blob) > 0 && n <= privkeyComment {
+		dlen = binary.BigEndian.Uint32(blob[:4])
+
+		switch n {
+		case checkint1Field:
+			blob = blob[4:]
+			checkint1 = int(dlen)
+		case checkint2Field:
+			blob = blob[4:]
+			checkint2 = int(dlen)
+			if (checkint1 != checkint2) {
+				fail("Decryption of private keys field in OPENSSH PRIVATE KEY file failed.")
+			}
+
+		case pubkeyTypeField:
+			pubkeyData["type"] = blob[:4+dlen]
+			blob = blob[4+dlen:]
+		case pubkeyModulusField:
+			pubkeyData["modulus"] = blob[:4+dlen]
+			blob = blob[4+dlen:]
+		case pubkeyExponentField:
+			pubkeyData["exponent"] = blob[:4+dlen]
+			allData := []byte{}
+			allData = append(allData, pubkeyData["type"]...)
+			allData = append(allData, pubkeyData["exponent"]...)
+			allData = append(allData, pubkeyData["modulus"]...)
+			sshkey := getPubkeyFromBlob(allData)
+			key.PublicKey = sshkey.Key
+			blob = blob[4+dlen:]
+
+		case privkeyExponentField:
+			data := blob[:4+dlen]
+			key.D = new(big.Int)
+			key.D.SetBytes(data[4:])
+			blob = blob[4+dlen:]
+		case privkeyPrimesIqmp:
+			/* skip */
+			blob = blob[4+dlen:]
+		case privkeyPrimesP:
+			data := blob[4:dlen]
+			key.Primes = make([]*big.Int, 2)
+			key.Primes[0] = new(big.Int)
+			key.Primes[0].SetBytes(data[1:])
+			blob = blob[4+dlen:]
+		case privkeyPrimesQ:
+			data := blob[4:dlen]
+			key.Primes[1] = new(big.Int)
+			key.Primes[1].SetBytes(data[1:])
+			blob = blob[4+dlen:]
+
+		case privkeyComment:
+			/* skip */
+			blob = blob[4+dlen:]
+		}
+		n++
+	}
+
+	return
+}
+
+/* The OpenSSH Key Format is described here:
+ * https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key
+ * https://coolaj86.com/articles/the-openssh-private-key-format/
+ * https://github.com/openssh/openssh-portable/blob/master/sshkey.c#sshkey_parse_private2
+ * ħttps://github.com/golang/crypto/blob/master/ssh/keys.go#parseOpenSSHPrivateKey
+ */
+func getRSAKeyFromOpenSSH(keyFile string, pemData []byte, block *pem.Block) (key *rsa.PrivateKey) {
+	verbose(fmt.Sprintf("Extracting RSA key from 'OPENSSH PRIVATE KEY' format in '%s'...", keyFile), 4)
+
+	authMagic := "openssh-key-v1"
+	if len(block.Bytes) < len(authMagic) ||
+		string(block.Bytes[:len(authMagic)]) != authMagic {
+		fail("Corrupt OPENSSH PRIVATE KEY file.\n")
+	}
+
+	keyBytes := block.Bytes[len(authMagic)+1:]
+
+	/* After the magic header, we get:
+	 * - four bytes representing the length of the next data field
+	 * - the cipher name
+	 * - four bytes length
+	 * - kdfname
+	 * - four bytes length
+	 * - kdfoptions
+	 * - four bytes numkeys
+	 * - numkeys pubkeys (which we ignore here)
+	 * - blob of numkeys privkeys
+	 */
+	const (
+		cipherField = iota
+		kdfnameField = iota
+		kdfoptionsField = iota
+		numKeysField = iota
+		privkeyField = iota
+	)
+
+	var dlen uint32
+	n := 0
+	for len(keyBytes) > 0 && n <= privkeyField {
+		dlen = binary.BigEndian.Uint32(keyBytes[:4])
+		keyBytes = keyBytes[4:]
+		chunklen := int(dlen)
+		if len(keyBytes) < chunklen {
+			fail("Invalid data - maybe a corrupted OPENSSH PRIVATE KEY file?\n")
+		}
+
+		switch n {
+		case cipherField:
+			data := keyBytes[:dlen]
+			keyBytes = keyBytes[dlen:]
+			cipher := string(data)
+			if cipher != "none" {
+				msg := "I'm sorry, at this time I only support unencrypted OPENSSH PRIVATE KEY files.\n"
+				msg += "You may choose to convert the file to PEM format, which I _can_ handle even if encrypted.\n"
+				msg += fmt.Sprintf("To do that, run 'ssh-keygen -p -f %s -m PEM'.\n", keyFile)
+				fail(msg)
+			}
+
+		case kdfnameField:
+			data := keyBytes[:dlen]
+			keyBytes = keyBytes[dlen:]
+			/* Since we currently only handle unencrypted
+			 * files, we can ignore this field.  Otherwise,
+			 * this should be e.g., 'bcrypt'. */
+			_ = string(data)
+		case kdfoptionsField:
+			data := keyBytes[:dlen]
+			keyBytes = keyBytes[dlen:]
+			/* Since we currently only handle unencrypted
+			 * files, we can ignore this field.  Otherwise,
+			 * this should be a 4 bytes salt length,
+			 * followed by the salt, followed by the
+			 * uint32 'rounds'. */
+			_ = data
+		case numKeysField:
+			numKeys := dlen
+			if numKeys > 1 {
+				fail("I'm sorry. At this time, I can only handle a single private key in an OPENSSH PRIVATE KEY file.\n")
+			}
+			/* We don't care about the pubkeys here, so we
+			 * can just discard them. */
+			for i := uint32(0); i < numKeys; i++ {
+				dlen = binary.BigEndian.Uint32(keyBytes[:4])
+				keyBytes = keyBytes[4+dlen:]
+			}
+		case privkeyField:
+			data := keyBytes[:dlen]
+			keyBytes = keyBytes[dlen:]
+			/* If we supported encrypted keys, we'd decrypt
+			 * the blob here, then pass the decrypted bytes
+			 * to this function. */
+			key = getPrivkeyFromOpenSSHBlob(data)
+		}
+		n++
+	}
+	return
+}
+
+func getRSAKeyFromPEM(keyFile string, pemData []byte, block *pem.Block) (key *rsa.PrivateKey) {
+	verbose(fmt.Sprintf("Extracting RSA key from PEM data in '%s'...", keyFile), 4)
+
+	var err error
+	keyBytes := block.Bytes
+	if strings.Contains(string(pemData), "Proc-Type: 4,ENCRYPTED") {
+		password := getpass(fmt.Sprintf("Enter pass phrase for %s: ", keyFile))
+		keyBytes, err = x509.DecryptPEMBlock(block, password)
+		if err != nil {
+			fail(fmt.Sprintf("Unable to decrypt private key: %v\n", err))
+		}
+	}
+
+	key, err = x509.ParsePKCS1PrivateKey(keyBytes)
+	if err != nil {
+		fail(fmt.Sprintf("Unable to extract private key from PEM data: %v\n", err))
+	}
+	return
+}
+
 /* With help from:
  * https://stackoverflow.com/questions/14404757/how-to-encrypt-and-decrypt-plain-text-with-a-rsa-keys-in-go
  */
@@ -636,24 +935,15 @@ func getRSAKeyFromSSHFile(keyFile string) (key *rsa.PrivateKey) {
 		fail(fmt.Sprintf("Unable to PEM-decode '%s'.\n", keyFile))
 	}
 
-	if got, want := block.Type, "RSA PRIVATE KEY"; got != want {
-		fail(fmt.Sprintf("Unknown key type %q.\n", got))
+	switch block.Type {
+	case "RSA PRIVATE KEY":
+		return getRSAKeyFromPEM(keyFile, pemData, block)
+	case "OPENSSH PRIVATE KEY":
+		return getRSAKeyFromOpenSSH(keyFile, pemData, block)
+	default:
+		fail(fmt.Sprintf("Unsupported key type %q.\n", block.Type))
 	}
 
-	keyBytes := block.Bytes
-	if strings.Contains(string(pemData), "Proc-Type: 4,ENCRYPTED") {
-
-		password := getpass(fmt.Sprintf("Enter pass phrase for %s: ", keyFile))
-		keyBytes, err = x509.DecryptPEMBlock(block, password)
-		if err != nil {
-			fail(fmt.Sprintf("Unable to decrypt private key: %v\n", err))
-		}
-	}
-
-	key, err = x509.ParsePKCS1PrivateKey(keyBytes)
-	if err != nil {
-		fail(fmt.Sprintf("Unable to extract private key from PEM data: %v\n", err))
-	}
 	return
 }
 
@@ -820,7 +1110,7 @@ func identifyCorrectSessionKeyData(privfp string, keys map[string]string) (skey 
 	for r, key := range keys {
 		fp := fp_pattern.FindStringSubmatch(r)[2]
 		if fp == privfp {
-			skey = decode(key)
+			skey = decodeBase64(key)
 			break
 		}
 	}
@@ -1060,76 +1350,13 @@ func sshToPubkey(key string) (pubkey SSHKey) {
 	}
 
 	fields := strings.Split(key[i:], " ")
-	decoded := decode(fields[1])
+	decoded := decodeBase64(fields[1])
 	if len(decoded) < 1 {
 		fmt.Fprintf(os.Stderr, "Unable to decode key.\n")
 		return
 	}
 
-	/* Based on:
-	 * http://cpansearch.perl.org/src/MALLEN/Convert-SSH2-0.01/lib/Convert/SSH2.pm
-	 * https://gist.github.com/mahmoudimus/1654254,
-	 * http://golang.org/src/pkg/crypto/x509/x509.go
-	 *
-	 * See also: http://www.netmeister.org/blog/ssh2pkcs8.html
-	 *
-	 * The key format is base64 encoded tuples of:
-	 * - four bytes representing the length of the next data field
-	 * - the data field
-	 *
-	 * In practice, for an RSA key, we get:
-	 * - four bytes [0 0 0 7]
-	 * - the string "ssh-rsa" (7 bytes)
-	 * - four bytes
-	 * - the exponent
-	 * - four bytes
-	 * - the modulus
-	 */
-
-	var k rsa.PublicKey
-	n := 0
-	for len(decoded) > 4 {
-		var dlen uint32
-		bbuf := bytes.NewReader(decoded[:4])
-		err := binary.Read(bbuf, binary.BigEndian, &dlen)
-		if err != nil {
-			fmt.Printf("%v\n", err)
-			continue
-		}
-
-		chunklen := int(dlen) + 4
-		if len(decoded) < chunklen {
-			fmt.Fprintf(os.Stderr, "Invalid data while trying to extract public key.\n")
-			fmt.Fprintf(os.Stderr, "Maybe a corrupted key?\n%v\n", key)
-			return
-		}
-
-		data := decoded[4:chunklen]
-		decoded = decoded[chunklen:]
-
-		switch n {
-		case 0:
-			if ktype := fmt.Sprintf("%s", data); ktype != "ssh-rsa" {
-				fmt.Fprintf(os.Stderr, "Unsupported key type (%v).\n", ktype)
-				return
-			}
-		case 1:
-			i := new(big.Int)
-			i.SetString(fmt.Sprintf("0x%v", hex.EncodeToString(data)), 0)
-			k.E = int(i.Int64())
-		case 2:
-			i := new(big.Int)
-			/* The value in this field is signed, so the first
-			 * byte should be 0, so we strip it. */
-			i.SetString(fmt.Sprintf("0x%v", hex.EncodeToString(data[1:])), 0)
-			k.N = i
-		}
-		n++
-	}
-
-	pubkey.Key = k
-	pubkey.Fingerprint = getFingerPrint(k)
-
+	pubkey = getPubkeyFromBlob(decoded)
 	return
 }
 

@@ -1,3 +1,7 @@
+* Fri May 24 2019 - jschauma@netmeister.org
+- 5.3
+-  add support for "OPENSSH PRIVATE KEY" format
+
 * Tue Oct 23 2018 - jschauma@netmeister.org
 - 5.2
 -  fix GitHub URL handling per Issue#19

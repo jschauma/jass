@@ -17,6 +17,13 @@ Please see the
 [manual page](https://github.com/jschauma/jass/blob/master/doc/jass.txt)
 for further details.
 
+If you are on Mac OS X, you can install [this
+package](https://www.netmeister.org/apps/jass-5.3.dmg)
+([pgp
+signature](https://www.netmeister.org/apps/jass-5.3.dmg.asc)
+made with [my PGP key
+0x66CE4FE96F6BD3D7](https://pgp.mit.edu/pks/lookup?op=get&search=0x66CE4FE96F6BD3D7)).
+
 Details
 ========
 
