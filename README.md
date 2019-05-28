@@ -17,13 +17,6 @@ Please see the
 [manual page](https://github.com/jschauma/jass/blob/master/doc/jass.txt)
 for further details.
 
-If you are on Mac OS X, you can install [this
-package](https://www.netmeister.org/apps/jass-5.3.dmg)
-([pgp
-signature](https://www.netmeister.org/apps/jass-5.3.dmg.asc)
-made with [my PGP key
-0x66CE4FE96F6BD3D7](https://pgp.mit.edu/pks/lookup?op=get&search=0x66CE4FE96F6BD3D7)).
-
 Details
 ========
 
@@ -139,16 +132,12 @@ system:
 Installing jass
 ===============
 
-If you run an x86-64 based RPM based Linux version, you can download an
-RPM of jass(1) from [here](https://www.netmeister.org/apps/jass-5.0-1.x86_64.rpm)
-([gpg signature](https://www.netmeister.org/apps/jass-5.0-1.x86_64.rpm.asc)).
-
 If you run OS X, you can download a DMG installer from
-[here](https://www.netmeister.org/apps/jass-5.0.dmg) ([gpg
-signature](https://www.netmeister.org/apps/jass-5.0.dmg.asc)).
+[here](https://www.netmeister.org/apps/jass-5.3.dmg) ([pgp
+signature](https://www.netmeister.org/apps/jass-5.3.dmg.asc)).
 
-The PGP signatures are created using [this PGP
-key](https://pgp.mit.edu/pks/lookup?op=get&search=0x66CE4FE96F6BD3D7).
+The PGP signatures are created using [my PGP
+key 0x66CE4FE96F6BD3D7](https://pgp.mit.edu/pks/lookup?op=get&search=0x66CE4FE96F6BD3D7).
 
 If you want to build jass(1) yourself, you can run:
 ```
@@ -170,18 +159,17 @@ also available in the 'src' directory.)
 jass(1) was tested on the following systems:
 
 - RedHat Enterprise Linux 6.8
-- Mac OS X 10.12.6
-- NetBSD 7.0.2
+- Mac OS X 10.14.5
+- NetBSD 8.0
 
 FAQ
 ===
 
-Why don't we just use PGP?
+Why don't you just use PGP?
 --------------------------
 Why indeed. PGP has many advantages and more widespread use would make
-things a lot easier, but very few people appear to use it. If you're
-interested in getting an introduction to PGP, I'll gladly come and give
-you and your team a presentation.
+things a lot easier, but very few people appear to use it.  SSH keys,
+on the other hand, are used nearly everywhere.
 
 Why does this ask me for my passphrase when decrypting? Can't it get it from my ssh agent?
 ------------------------------------------------------------------------------------------
