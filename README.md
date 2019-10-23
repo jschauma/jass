@@ -25,7 +25,7 @@ package](https://github.com/jschauma/jass/raw/master/packages/dmgs/jass.dmg);
 that package is signed with my PGP key
 [6F6BD3D7](https://www.netmeister.org/public_key.gpg.asc)
 with the signature
-[here](https://github.com/jschauma/jass/raw/master/packages/dmgs/jass.dmg.asc);
+[here](https://github.com/jschauma/jass/raw/master/packages/dmgs/jass.dmg.asc).
 
 ```
 $ cd packages/dmgs
