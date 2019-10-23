@@ -171,26 +171,6 @@ system:
 
     jass -d -k ~/.ssh/privkey <secret
 
-Installing jass
-===============
-
-If you run OS X, you can download a DMG installer from
-[here](https://www.netmeister.org/apps/jass-5.3.dmg) ([pgp
-signature](https://www.netmeister.org/apps/jass-5.3.dmg.asc)).
-
-The PGP signatures are created using [my PGP
-key 0x66CE4FE96F6BD3D7](https://pgp.mit.edu/pks/lookup?op=get&search=0x66CE4FE96F6BD3D7).
-
-If you want to build jass(1) yourself, you can run:
-```
-git clone https://github.com/jschauma/jass.git
-cd jass
-make install
-```
-
-This will copy the binary and manual page under /usr/local or wherever
-PREFIX points to.
-
 
 Supported Platforms
 -------------------
@@ -201,7 +181,7 @@ also available in the 'src' directory.)
 jass(1) was tested on the following systems:
 
 - RedHat Enterprise Linux 6.8
-- Mac OS X 10.14.5
+- Mac OS X 10.14.6
 - NetBSD 8.0
 
 FAQ
