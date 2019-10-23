@@ -17,6 +17,48 @@ Please see the
 [manual page](https://github.com/jschauma/jass/blob/master/doc/jass.txt)
 for further details.
 
+Installation
+============
+
+If you're on Mac OS X, you can install [this
+package](https://github.com/jschauma/jass/raw/master/packages/dmgs/jass.dmg);
+that package is signed with my PGP key
+[6F6BD3D7](https://www.netmeister.org/public_key.gpg.asc)
+with the signature
+[here](https://github.com/jschauma/jass/raw/master/packages/dmgs/jass.dmg.asc);
+
+```
+$ cd packages/dmgs
+$ gpg --verify jass.dmg.asc jass.dmg
+gpg: Signature made Wed Oct 23 16:55:04 2019 EDT using RSA key ID 6F6BD3D7
+gpg: Good signature from "Jan Schaumann <jschauma@netbsd.org>"
+gpg:                 aka "Jan Schaumann (@jschauma) <jschauma@netmeister.org>"
+gpg:                 aka "Jan Schaumann <jschauma@netmeister.org>"
+$ hdiutil mount -quiet jass.dmg
+$ sudo installer -pkg /Volumes/Jass/jass-6.0.pkg -target /
+installer: Package name is jass-6.0
+installer: Upgrading at base path /
+installer: The upgrade was successful.
+$ hdiutil unmount /Volumes/Jass
+"/Volumes/Jass" unmounted successfully.
+$
+```
+
+### Manual installation
+
+```
+$ make build
+```
+
+If you like, you can install the binary and the manual
+page somewhere convenient; the Makefile defaults to
+'/usr/local' but you can change the PREFIX:
+
+```
+$ make PREFIX=~ install
+```
+
+
 Details
 ========
 

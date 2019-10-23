@@ -18,9 +18,11 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
@@ -73,7 +75,7 @@ const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 const OPENSSH_DSS_KEY_SUBSTRING = "ssh-dss AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "5.3"
+const VERSION = "6.0"
 
 var ACTION = "encrypt"
 
@@ -144,7 +146,7 @@ func main() {
 
 func argcheck(flag string, args []string, i int) {
 	if len(args) <= (i + 1) {
-		fail(fmt.Sprintf("'%v' needs an argument\n", flag))
+		fail("'%v' needs an argument", flag)
 	}
 }
 
@@ -203,7 +205,7 @@ func convertPubkeys() {
 	}
 
 	if len(PUBKEYS) < 1 {
-		fail("No valid public keys found.\n")
+		fail("No valid public keys found.")
 	}
 }
 
@@ -229,11 +231,25 @@ func decrypt() {
 	privkey := getRSAKeyFromSSHFile(keys[0])
 	privfp := getFingerPrint(privkey.PublicKey)
 
-	message, all_skeys, _ := parseEncryptedInput()
+	message, hmac, all_skeys, _ := parseEncryptedInput()
 
 	skey := identifyCorrectSessionKeyData(privfp, all_skeys)
 	sessionKey := decryptSessionKey(skey, privkey)
 
+	if len(hmac) > 0 {
+		verifyHMAC(sessionKey, decodeBase64(message), decodeBase64(hmac))
+	} else {
+		fmt.Fprintf(os.Stderr, "WARNING: missing HMAC!\n")
+		_, unsafe := os.LookupEnv("JASS_NO_HMAC")
+		if !unsafe {
+			fail("\nOlder versions of jass(1) did not use an HMAC to verify\n" +
+				"message integrity and authenticity.  As a result, the\n" +
+				"data you're decrypting now might have been tampered\n" +
+				"with.  If you still want me to decrypt the content, please\n" +
+				"set the environment variable JASS_NO_HMAC and re-run\n" +
+				"the command at your own risk.")
+		}
+	}
 	decryptMessage(decodeBase64(message), sessionKey)
 }
 
@@ -258,7 +274,7 @@ func decryptMessage(msg []byte, skey []byte) {
 	key, iv := bytesToKey(skey, salt)
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		fail(fmt.Sprintf("Unable to set up new cipher: %s\n", err))
+		fail("Unable to set up new cipher: %s", err)
 	}
 
 	if len(msg)%aes.BlockSize != 0 {
@@ -277,7 +293,7 @@ func decryptSessionKey(skey []byte, privkey *rsa.PrivateKey) (session_key []byte
 
 	session_key, err := rsa.DecryptPKCS1v15(rand.Reader, privkey, skey)
 	if err != nil {
-		fail("Unable to decrypt session key.\n")
+		fail("Unable to decrypt session key.")
 	}
 
 	return
@@ -298,7 +314,6 @@ func encrypt() {
 	skey := base64.StdEncoding.EncodeToString(getRandomBytes(32))
 	encryptData(skey)
 	encryptSessionKey(skey)
-
 	encodeVersionInfo()
 }
 
@@ -317,7 +332,7 @@ func encryptData(skey string) {
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		fail(fmt.Sprintf("Unable to create new cipher: %v\n", err))
+		fail("Unable to create new cipher: %v", err)
 	}
 
 	mode := cipher.NewCBCEncrypter(block, iv)
@@ -325,6 +340,7 @@ func encryptData(skey string) {
 
 	output = append(output, data...)
 	uuencode("message", output)
+	generateHMAC(skey, output)
 }
 
 func encryptSessionKey(skey string) {
@@ -335,8 +351,8 @@ func encryptSessionKey(skey string) {
 			random := rand.Reader
 			ciphertext, err := rsa.EncryptPKCS1v15(random, &key.Key, []byte(skey))
 			if err != nil {
-				fail(fmt.Sprintf("Unable to encrypt session key for %v-%v: %v\n",
-					recipient, key.Fingerprint, err))
+				fail("Unable to encrypt session key for %v-%v: %v",
+					recipient, key.Fingerprint, err)
 			}
 
 			uuencode(fmt.Sprintf("%v-%v", recipient, key.Fingerprint), ciphertext)
@@ -410,9 +426,17 @@ func expandSupplementaryGroup(group string) []string {
 	return strings.Split(output, ",")
 }
 
-func fail(msg string) {
-	fmt.Fprintf(os.Stderr, msg)
+func fail(format string, v ...interface{}) {
+	fmt.Fprintf(os.Stderr, format+"\n", v...)
 	os.Exit(EXIT_FAILURE)
+}
+
+func generateHMAC(skey string, data []byte) {
+	verbose("Generating HMAC...", 2)
+
+	h := hmac.New(sha256.New, []byte(skey))
+	h.Write(data)
+	uuencode("hmac", h.Sum(nil))
 }
 
 func getFingerPrint(pubkey rsa.PublicKey) (fp string) {
@@ -659,7 +683,7 @@ func getPubkeysFromURLs(uname string) (keys []string) {
 		if site == "GitHub" && len(gitHubApiToken) > 0 {
 			usr, err := user.Current()
 			if err != nil {
-				fail(fmt.Sprintf("%v\n", err))
+				fail("%v", err)
 			}
 			req.SetBasicAuth(usr.Username, gitHubApiToken)
 		}
@@ -813,7 +837,7 @@ func getRSAKeyFromOpenSSH(keyFile string, pemData []byte, block *pem.Block) (key
 	authMagic := "openssh-key-v1"
 	if len(block.Bytes) < len(authMagic) ||
 		string(block.Bytes[:len(authMagic)]) != authMagic {
-		fail("Corrupt OPENSSH PRIVATE KEY file.\n")
+		fail("Corrupt OPENSSH PRIVATE KEY file.")
 	}
 
 	keyBytes := block.Bytes[len(authMagic)+1:]
@@ -844,7 +868,7 @@ func getRSAKeyFromOpenSSH(keyFile string, pemData []byte, block *pem.Block) (key
 		keyBytes = keyBytes[4:]
 		chunklen := int(dlen)
 		if len(keyBytes) < chunklen {
-			fail("Invalid data - maybe a corrupted OPENSSH PRIVATE KEY file?\n")
+			fail("Invalid data - maybe a corrupted OPENSSH PRIVATE KEY file?")
 		}
 
 		switch n {
@@ -855,7 +879,7 @@ func getRSAKeyFromOpenSSH(keyFile string, pemData []byte, block *pem.Block) (key
 			if cipher != "none" {
 				msg := "I'm sorry, at this time I only support unencrypted OPENSSH PRIVATE KEY files.\n"
 				msg += "You may choose to convert the file to PEM format, which I _can_ handle even if encrypted.\n"
-				msg += fmt.Sprintf("To do that, run 'ssh-keygen -p -f %s -m PEM'.\n", keyFile)
+				msg += fmt.Sprintf("To do that, run 'ssh-keygen -p -f %s -m PEM'.", keyFile)
 				fail(msg)
 			}
 
@@ -878,7 +902,7 @@ func getRSAKeyFromOpenSSH(keyFile string, pemData []byte, block *pem.Block) (key
 		case numKeysField:
 			numKeys := dlen
 			if numKeys > 1 {
-				fail("I'm sorry. At this time, I can only handle a single private key in an OPENSSH PRIVATE KEY file.\n")
+				fail("I'm sorry. At this time, I can only handle a single private key in an OPENSSH PRIVATE KEY file.")
 			}
 			/* We don't care about the pubkeys here, so we
 			 * can just discard them. */
@@ -908,13 +932,13 @@ func getRSAKeyFromPEM(keyFile string, pemData []byte, block *pem.Block) (key *rs
 		password := getpass(fmt.Sprintf("Enter pass phrase for %s: ", keyFile))
 		keyBytes, err = x509.DecryptPEMBlock(block, password)
 		if err != nil {
-			fail(fmt.Sprintf("Unable to decrypt private key: %v\n", err))
+			fail("Unable to decrypt private key: %v", err)
 		}
 	}
 
 	key, err = x509.ParsePKCS1PrivateKey(keyBytes)
 	if err != nil {
-		fail(fmt.Sprintf("Unable to extract private key from PEM data: %v\n", err))
+		fail("Unable to extract private key from PEM data: %v", err)
 	}
 	return
 }
@@ -927,12 +951,12 @@ func getRSAKeyFromSSHFile(keyFile string) (key *rsa.PrivateKey) {
 
 	pemData, err := ioutil.ReadFile(keyFile)
 	if err != nil {
-		fail(fmt.Sprintf("Unable to read '%s'.\n", keyFile))
+		fail("Unable to read '%s'.\n", keyFile)
 	}
 
 	block, _ := pem.Decode(pemData)
 	if block == nil {
-		fail(fmt.Sprintf("Unable to PEM-decode '%s'.\n", keyFile))
+		fail("Unable to PEM-decode '%s'.\n", keyFile)
 	}
 
 	switch block.Type {
@@ -941,7 +965,7 @@ func getRSAKeyFromSSHFile(keyFile string) (key *rsa.PrivateKey) {
 	case "OPENSSH PRIVATE KEY":
 		return getRSAKeyFromOpenSSH(keyFile, pemData, block)
 	default:
-		fail(fmt.Sprintf("Unsupported key type %q.\n", block.Type))
+		fail("Unsupported key type %q.\n", block.Type)
 	}
 
 	return
@@ -952,7 +976,7 @@ func getRandomBytes(rlen int) (random_data []byte) {
 
 	random_data = make([]byte, rlen)
 	if _, err := rand.Read(random_data); err != nil {
-		fail(fmt.Sprintf("%v\n", err))
+		fail("%v", err)
 	}
 
 	return
@@ -1049,7 +1073,7 @@ func getpass(prompt string) (pass []byte) {
 func getpassFromEnv(varname string) (pass []byte) {
 	pass = []byte(os.Getenv(varname))
 	if len(pass) < 1 {
-		fail(fmt.Sprintf("Environment variable '%v' not set.\n", varname))
+		fail("Environment variable '%v' not set.", varname)
 	}
 	return
 }
@@ -1058,7 +1082,7 @@ func getpassFromFile(fname string) (pass []byte) {
 	verbose(fmt.Sprintf("Getting password from file '%s'...", fname), 5)
 	file, err := os.Open(fname)
 	if err != nil {
-		fail(fmt.Sprintf("Unable to open '%s': %v\n", fname, err))
+		fail("Unable to open '%s': %v", fname, err)
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -1074,7 +1098,7 @@ func getpassFromUser(prompt string) (pass []byte) {
 
 	dev_tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
-		fail(fmt.Sprintf("%v\n", err))
+		fail("%v", err)
 	}
 
 	fmt.Fprintf(dev_tty, prompt)
@@ -1092,7 +1116,7 @@ func getpassFromUser(prompt string) (pass []byte) {
 	input := bufio.NewReader(dev_tty)
 	pass, err = input.ReadBytes('\n')
 	if err != nil {
-		fail(fmt.Sprintf("Unable to read data from user: %v\n", err))
+		fail("Unable to read data from user: %v\n", err)
 	}
 
 	stty("echo")
@@ -1116,7 +1140,7 @@ func identifyCorrectSessionKeyData(privfp string, keys map[string]string) (skey 
 	}
 
 	if len(skey) < 1 {
-		fail(fmt.Sprintf("Data was not encrypted for the key '%v'.\n", privfp))
+		fail("Data was not encrypted for the key '%v'.\n", privfp)
 	}
 
 	return
@@ -1148,9 +1172,10 @@ func padBuffer(buf []byte) (padded []byte) {
 
 /* jass(1) input consists of at least three uuencoded components:
  * - the actual data, encrypted with a session key
+ * - the hmac, using the same session key
  * - the session key encrypted for each recipient's public key
  * - a short version blob */
-func parseEncryptedInput() (message string, keys map[string]string, version string) {
+func parseEncryptedInput() (message string, hmac string, keys map[string]string, version string) {
 	verbose("Parsing encrypted input...", 2)
 
 	begin_re := regexp.MustCompile("^begin-base64 600 (?P<name>[^ ]+)")
@@ -1189,6 +1214,8 @@ func parseEncryptedInput() (message string, keys map[string]string, version stri
 			n++
 			field = begin_re.FindStringSubmatch(line)[1]
 			switch {
+			case field == "hmac":
+				encoded = &hmac
 			case field == "message":
 				encoded = &message
 			case field == "version":
@@ -1213,11 +1240,11 @@ func parseEncryptedInput() (message string, keys map[string]string, version stri
 	fd.Close()
 
 	if len(garbage) > 0 {
-		fail("Garbage found in input. Aborting\n")
+		fail("Garbage found in input. Aborting.")
 	}
 
 	if len(message) < 1 || len(keys) < 1 {
-		fail("No valid jass input found.\n")
+		fail("No valid jass input found.")
 	}
 
 	return
@@ -1294,13 +1321,13 @@ func runCommand(args []string, need_tty bool) string {
 	if need_tty {
 		dev_tty, err := os.Open("/dev/tty")
 		if err != nil {
-			fail(fmt.Sprintf("%v\n", err))
+			fail("%v", err)
 		}
 		cmd.Stdin = dev_tty
 	}
 	err := cmd.Run()
 	if err != nil {
-		fail(fmt.Sprintf("Unable to run '%v':\n%v\n%v\n", strings.Join(args, " "), stderr.String(), err))
+		fail("Unable to run '%v':\n%v\n%v", strings.Join(args, " "), stderr.String(), err)
 	}
 	return strings.TrimSpace(stdout.String())
 }
@@ -1308,11 +1335,11 @@ func runCommand(args []string, need_tty bool) string {
 func runCommandStdinPipe(cmd *exec.Cmd) (pipe io.WriteCloser) {
 	pipe, err := cmd.StdinPipe()
 	if err != nil {
-		fail(fmt.Sprintf("Unable to create pipe to command: %v\n", err))
+		fail("Unable to create pipe to command: %v", err)
 	}
 	err = cmd.Start()
 	if err != nil {
-		fail(fmt.Sprintf("Unable to run pipe to command: %v\n", err))
+		fail("Unable to run pipe to command: %v", err)
 	}
 
 	return
@@ -1369,7 +1396,7 @@ func stty(arg string) {
 
 	err := exec.Command("/bin/stty", flag, "/dev/tty", arg).Run()
 	if err != nil {
-		fail(fmt.Sprintf("Unable to run stty on /dev/tty: %v\n", err))
+		fail("Unable to run stty on /dev/tty: %v", err)
 	}
 }
 
@@ -1416,15 +1443,6 @@ func uuencode(name string, msg []byte) {
 	}
 	fmt.Printf("%v\n", out)
 	fmt.Printf("====\n")
-}
-
-func verbose(msg string, level int) {
-	if level <= VERBOSITY {
-		for i := 0; i < level; i++ {
-			fmt.Fprintf(os.Stderr, "=")
-		}
-		fmt.Fprintf(os.Stderr, "> %v\n", msg)
-	}
 }
 
 func varCheck() {
@@ -1477,25 +1495,25 @@ func varCheck() {
 func varCheckDecrypt() {
 	verbose("Checking that all variables look ok for decrypting...", 2)
 	if len(RECIPIENTS) != 0 || len(GROUPS) != 0 {
-		fail("You cannot specify any recipients when decrypting.\n")
+		fail("You cannot specify any recipients when decrypting.")
 	}
 
 	if len(FILES) == 0 {
 		FILES = append(FILES, "/dev/stdin")
 	} else if len(FILES) > 1 {
-		fail("You can only decrypt one file at a time.\n")
+		fail("You can only decrypt one file at a time.")
 	}
 
 	if len(KEY_FILES) == 0 {
 		verbose("No key specified, trying ~/.ssh/id_rsa...", 2)
 		usr, err := user.Current()
 		if err != nil {
-			fail(fmt.Sprintf("%v\n", err))
+			fail("%v", err)
 		}
 		privkey := usr.HomeDir + "/.ssh/id_rsa"
 		KEY_FILES[privkey] = true
 	} else if len(KEY_FILES) > 1 {
-		fail("Please only specify a single key file when decrypting.\n")
+		fail("Please only specify a single key file when decrypting.")
 	}
 
 	var keys []string
@@ -1505,11 +1523,11 @@ func varCheckDecrypt() {
 
 	privkey, err := ioutil.ReadFile(keys[0])
 	if err != nil {
-		fail(fmt.Sprintf("%v\n", err))
+		fail("%v", err)
 	}
 
 	if strings.Contains(string(privkey), OPENSSH_RSA_KEY_SUBSTRING) {
-		fail(fmt.Sprintf("'%v' looks like a public key to me. Please specify a private key when decrypting.\n", keys[0]))
+		fail("'%v' looks like a public key to me. Please specify a private key when decrypting.\n", keys[0])
 	}
 }
 
@@ -1519,7 +1537,7 @@ func varCheckEncrypt() {
 		for file, _ := range KEY_FILES {
 			keys, err := ioutil.ReadFile(file)
 			if err != nil {
-				fail(fmt.Sprintf("Unable to read %v: %v\n", file, err))
+				fail("Unable to read %v: %v\n", file, err)
 			}
 			var key_data []string
 			for _, line := range strings.Split(string(keys), "\n") {
@@ -1535,17 +1553,36 @@ func varCheckEncrypt() {
 			RECIPIENTS[file] = key_data
 		}
 	} else if len(RECIPIENTS) == 0 && len(GROUPS) == 0 {
-		fail("You need to provide either a key file, a group, or a username.\n")
+		fail("You need to provide either a key file, a group, or a username.")
 	}
 }
 
 func varCheckList() {
 	verbose("Checking that all variables look ok for listing...", 2)
 	if len(RECIPIENTS) != 0 || len(GROUPS) != 0 {
-		fail("You cannot specify any recipients when listing recipients.\n")
+		fail("You cannot specify any recipients when listing recipients.")
 	}
 
 	if len(KEY_FILES) > 0 {
-		fail("You cannot specify any keys when listing recipients.\n")
+		fail("You cannot specify any keys when listing recipients.")
+	}
+}
+
+func verbose(msg string, level int) {
+	if level <= VERBOSITY {
+		for i := 0; i < level; i++ {
+			fmt.Fprintf(os.Stderr, "=")
+		}
+		fmt.Fprintf(os.Stderr, "> %v\n", msg)
+	}
+}
+
+func verifyHMAC(key, message, givenHMAC []byte) {
+	verbose("Verifying HMAC...", 2)
+	h := hmac.New(sha256.New, key)
+	h.Write(message)
+	calculatedHMAC := h.Sum(nil)
+	if !hmac.Equal(calculatedHMAC, givenHMAC) {
+		fail("Incorrect HMAC! Aborting.")
 	}
 }

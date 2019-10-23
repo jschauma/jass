@@ -1,3 +1,8 @@
+* Wed Oct 23 2019 - jschauma@netmeister.org
+- 6.0
+-  add support for an HMAC to verify the message
+   integrity and authenticity prior to decryption
+
 * Fri May 24 2019 - jschauma@netmeister.org
 - 5.3
 -  add support for "OPENSSH PRIVATE KEY" format
