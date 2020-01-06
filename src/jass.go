@@ -57,7 +57,7 @@ var LDAPFIELD = ""
 var LDAPSEARCH = ""
 
 /* You can enable default URLs here, if you so choose. */
-var GITHUB_URL = "https://api.github.com/users/<user>/keys"
+var GITHUB_URL = "https://api.github.com/"
 var KEYKEEPER_URL = ""
 
 var URLS = map[string]*KeyURL{
