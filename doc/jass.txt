@@ -55,7 +55,9 @@ DETAILS
 
      As an alternative to providing a public key, a recipient may also be
      specified via the -g and -u flags.	 If -g was specified, jass will expand
-     the given group to individual users.
+     the given group to individual users.  This expansion will include local
+     and LDAP groups (if LDAP is enabled) as well as GitHub teams (see Section
+     GITHUB SERVICE).
 
      For each user, jass will first look for that user's ~/.ssh/autho-
      rized_keys file, then the file /etc/ssh/authorized_keys/<user>.
@@ -138,6 +140,10 @@ GITHUB SERVICE
      jass can look for public SSH keys on a GitHub service.  The URL to use
      for this can be set via the GITHUB_URL environment variable.
 
+     If this variable is set, jass will retrieve keys for users from GitHub as
+     well as expand groups specified via -g as GitHub teams in the format
+     "org/team" or "numeric-team-id".
+
      If you use an internal GitHub instance that requires authentication, then
      jass can make use of the GITHUB_API_TOKEN environment variable.  If set,
      jass will use it to set the Basic HTTP Authentication header 'Authoriza-
@@ -181,7 +187,7 @@ EXAMPLES
 
      To encrypt data using the internal GitHub instance with Basic HTTP Auth:
 
-	   export GITHUB_URL="https://git.example.com/api/v3/users/<user>/keys"
+	   export GITHUB_URL="https://git.example.com/api/v3"
 	   export GITHUB_API_TOKEN="abcdef0123456789abcdef0123456789abcdef01"
 	   jass -u user1 <data
 
@@ -190,21 +196,18 @@ ENVIRONMENT
      variables LDAPFIELD and LDAPSEARCH to be set.  You can either edit the
      script and set them in there, or export them in your environment.
 
-     Additional environment variables honored by jass
-      are shown below with example values.
+     The following are example values.
 
      LDAPFIELD		SSHPubkey
 
      LDAPSEARCH		ldapsearch -LLLxh ldap.yourdomain.com -b dc=exam-
 			ple,dc=com
 
-     GITHUB_URL		https://api.github.com/users/<user>/keys
+     KEYKEEPER_URL	https://keykeeper.tld/keys?user=<user>
+
+     GITHUB_URL		https://api.github.com/
 
      GITHUB_API_TOKEN	abcdef0123456789abcdef0123456789abcdef01
-
-     JASS_NO_HMAC	feeling_lucky
-
-     KEYKEEPER_URL	https://keykeeper.tld/keys?user=<user>
 
      When setting the KEYKEEPER_URL environment variable to a URL to be used
      as a KeyKeeper service, the string "<user>" will be replaced by the -u
@@ -219,7 +222,7 @@ ENVIRONMENT
      Likewise, retrieving public SSH keys from your internal GitHub instance,
      you could invoke jass as follows:
 
-	   $ export GITHUB_URL="https://git.your.internal.site/api/v3/users/<user>/keys"
+	   $ export GITHUB_URL="https://git.your.internal.site/api/v3"
 	   $ jass -u jdoe <data
 
 SEE ALSO
@@ -237,4 +240,4 @@ HISTORY
      jass was originally written by Jan Schaumann <jschauma@netmeister.org> in
      April 2013.
 
-NetBSD 8.0		       October 22, 2019			    NetBSD 8.0
+NetBSD 8.0		       January 03, 2020			    NetBSD 8.0

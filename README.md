@@ -103,12 +103,16 @@ If you prefer this not to happen, set the GITHUB_URL environment variable
 to the empty string.
 
 Alternatively, you can set GITHUB_URL to e.g., an internal GitHub service
-endpoint such as `https://git.your.domain.com/api/v3/users/<user>/keys`,
-and jass(1) will look for keys there.
+endpoint such as `https://git.your.domain.com/api/v3`,
+and jass(1) will look for keys there.  This also will
+work for specifying a GitHub "team" instead of a
+group, either in the format "org/team" or as a numeric
+team-id.
 
 If you are using an internal GitHub service and require authentication,
 you can set the GITHUB_API_TOKEN environment variable to enable
-Basic HTTP Auth.
+Basic HTTP Auth.   This token will require `read:org`
+and `read:user` privileges.
 
 
 KeyKeeper Server
@@ -181,7 +185,7 @@ also available in the 'src' directory.)
 jass(1) was tested on the following systems:
 
 - RedHat Enterprise Linux 6.8
-- Mac OS X 10.14.6
+- Mac OS X 10.15.2
 - NetBSD 8.0
 
 FAQ

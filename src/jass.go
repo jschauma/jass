@@ -75,7 +75,7 @@ const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 const OPENSSH_DSS_KEY_SUBSTRING = "ssh-dss AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "6.0"
+const VERSION = "6.1"
 
 var ACTION = "encrypt"
 
@@ -91,11 +91,6 @@ type KeyURL struct {
 type SSHKey struct {
 	Key         rsa.PublicKey
 	Fingerprint string
-}
-
-type GitHubKeys struct {
-	Id  int
-	Key string
 }
 
 type KeyKeeperKeys struct {
@@ -146,12 +141,12 @@ func main() {
 
 func argcheck(flag string, args []string, i int) {
 	if len(args) <= (i + 1) {
-		fail("'%v' needs an argument", flag)
+		fail("'%v' needs an argument\n", flag)
 	}
 }
 
 func bytesToKey(skey []byte, salt []byte) (key []byte, iv []byte) {
-	verbose("Deriving key and IV from session key and salt...", 3)
+	verbose(3, "Deriving key and IV from session key and salt...")
 
 	/* Per http://www.ict.griffith.edu.au/anthony/info/crypto/openssl.hints :
 	 * For aes-256 the key size is 32:
@@ -190,10 +185,10 @@ func bytesToKey(skey []byte, salt []byte) (key []byte, iv []byte) {
 }
 
 func convertPubkeys() {
-	verbose("Converting pubkeys to PKCS8 format...", 1)
+	verbose(1, "Converting pubkeys to PKCS8 format...")
 
 	for recipient, keys := range RECIPIENTS {
-		verbose(fmt.Sprintf("Converting pubkeys for '%v' to PKCS8 format...", recipient), 2)
+		verbose(2, "Converting pubkeys for '%v' to PKCS8 format...", recipient)
 		for _, key := range keys {
 			if len(key) > 1 {
 				pubkey := sshToPubkey(key)
@@ -205,13 +200,13 @@ func convertPubkeys() {
 	}
 
 	if len(PUBKEYS) < 1 {
-		fail("No valid public keys found.")
+		fail("No valid public keys found.\n")
 	}
 }
 
 func decodeBase64(input string) (decoded []byte) {
-	verbose("Decoding data...", 2)
-	verbose(fmt.Sprintf("Decoding '%v'...", input), 3)
+	verbose(2, "Decoding data...")
+	verbose(3, "Decoding '%v'...", input)
 
 	decoded, err := base64.StdEncoding.DecodeString(input)
 	if err != nil {
@@ -222,7 +217,7 @@ func decodeBase64(input string) (decoded []byte) {
 }
 
 func decrypt() {
-	verbose("Decrypting...", 1)
+	verbose(1, "Decrypting...")
 
 	var keys []string
 	for k, _ := range KEY_FILES {
@@ -254,7 +249,7 @@ func decrypt() {
 }
 
 func decryptMessage(msg []byte, skey []byte) {
-	verbose("Decrypting message...", 2)
+	verbose(2, "Decrypting message...")
 
 	/* The first 8 bytes are "Salted__", followed by 8 bytes of salt. */
 	salt := msg[8:16]
@@ -274,7 +269,7 @@ func decryptMessage(msg []byte, skey []byte) {
 	key, iv := bytesToKey(skey, salt)
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		fail("Unable to set up new cipher: %s", err)
+		fail("Unable to set up new cipher: %s\n", err)
 	}
 
 	if len(msg)%aes.BlockSize != 0 {
@@ -289,7 +284,7 @@ func decryptMessage(msg []byte, skey []byte) {
 }
 
 func decryptSessionKey(skey []byte, privkey *rsa.PrivateKey) (session_key []byte) {
-	verbose("Decrypting session key...", 2)
+	verbose(2, "Decrypting session key...")
 
 	session_key, err := rsa.DecryptPKCS1v15(rand.Reader, privkey, skey)
 	if err != nil {
@@ -301,12 +296,12 @@ func decryptSessionKey(skey []byte, privkey *rsa.PrivateKey) (session_key []byte
 
 func encodeVersionInfo() {
 	/* This is really only useful for debugging purposes. */
-	verbose("Encoding version info...", 2)
+	verbose(2, "Encoding version info...")
 	uuencode("version", []byte(fmt.Sprintf("VERSION: %v\n", VERSION)))
 }
 
 func encrypt() {
-	verbose("Encrypting...", 1)
+	verbose(1, "Encrypting...")
 
 	getPubkeys()
 	convertPubkeys()
@@ -314,11 +309,12 @@ func encrypt() {
 	skey := base64.StdEncoding.EncodeToString(getRandomBytes(32))
 	encryptData(skey)
 	encryptSessionKey(skey)
+
 	encodeVersionInfo()
 }
 
 func encryptData(skey string) {
-	verbose("Encrypting data...", 2)
+	verbose(2, "Encrypting data...")
 
 	salt := getRandomBytes(8)
 	output := []byte("Salted__")
@@ -332,7 +328,7 @@ func encryptData(skey string) {
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		fail("Unable to create new cipher: %v", err)
+		fail("Unable to create new cipher: %v\n", err)
 	}
 
 	mode := cipher.NewCBCEncrypter(block, iv)
@@ -344,7 +340,7 @@ func encryptData(skey string) {
 }
 
 func encryptSessionKey(skey string) {
-	verbose("Encrypting session key...", 2)
+	verbose(2,  "Encrypting session key...")
 
 	for recipient, pubkeys := range PUBKEYS {
 		for _, key := range pubkeys {
@@ -360,19 +356,88 @@ func encryptSessionKey(skey string) {
 	}
 }
 
+func expandGitHubTeam(githubTeam string) (members []string) {
+	verbose(2, "Expanding GitHub team '%v'...", githubTeam)
+
+	id := githubTeam
+
+	numeric_re := regexp.MustCompile(`^[0-9]+$`)
+	if !numeric_re.MatchString(githubTeam) {
+		orgTeam_re := regexp.MustCompile(`^(.*)/(.*)$`)
+		m := orgTeam_re.FindStringSubmatch(githubTeam)
+		if len(m) < 1 {
+			fmt.Fprintf(os.Stderr, "Not trying to resolve '%s' - which is neither a numeric team name nor in the format 'org/team' - as a GitHub Team.", githubTeam)
+			return
+		}
+
+		org := m[1]
+		team := m[2]
+		url := fmt.Sprintf("%s/orgs/%s/teams/%s", URLS["GitHub"].Url, org, team)
+		data := getURLContents("GitHub", url)
+
+		type GitHubTeamInfo struct {
+			Message string
+			Id      int
+		}
+
+		var teamInfo GitHubTeamInfo
+		err := json.Unmarshal(data, &teamInfo)
+		if err != nil {
+			printGitHubApiError(data)
+			return
+		}
+		if len(teamInfo.Message) > 0 {
+			fmt.Fprintf(os.Stderr, "Unable to fetch team details for '%s': %s\n", githubTeam, teamInfo.Message)
+			return
+		}
+		id = fmt.Sprintf("%d", teamInfo.Id)
+	}
+
+	url := fmt.Sprintf("%s/teams/%s/members", URLS["GitHub"].Url, id)
+	data := getURLContents("GitHub", url)
+
+	type GitHubUserInfo struct {
+		Login string
+	}
+
+	var teamMembers []GitHubUserInfo
+	err := json.Unmarshal(data, &teamMembers)
+	if err != nil {
+		printGitHubApiError(data)
+		return
+	}
+
+	for _, m := range teamMembers {
+		members = append(members, m.Login)
+	}
+
+	verbose(3, "Found %d GitHub team members...", len(members))
+	return
+}
+
 /*
  * Expanding a group happens by way of supplementary groups (ie
- * /etc/group), primary group (/etc/passwd), and LDAP.  All members of the
- * groups are added to the list of RECIPIENTS.
+ * /etc/group), primary group (/etc/passwd), LDAP, and GitHub teams.
+ * All members of the groups are added to the list of RECIPIENTS.
  */
 func expandGroup(group string) {
-	verbose(fmt.Sprintf("Expanding group '%v'...", group), 2)
+	verbose(2, "Expanding group '%v'...", group)
 
-	members := expandSupplementaryGroup(group)
+	var members []string
+
+	/* GitHub teams may be "org/team", but we do
+	 * not allow '/' in local group names. */
+	if !strings.Contains(group, "/") {
+		members = expandSupplementaryGroup(group)
 	members = append(members, expandPrimaryGroup(group)...)
+	}
 
-	if len(LDAPSEARCH) > 1 {
+	if len(LDAPSEARCH) > 0 {
 		members = append(members, expandLDAPGroup(group)...)
+	}
+
+	if len(GITHUB_URL) > 0 {
+		members = append(members, expandGitHubTeam(group)...)
 	}
 
 	for _, m := range members {
@@ -383,7 +448,7 @@ func expandGroup(group string) {
 }
 
 func expandLDAPGroup(group string) (members []string) {
-	verbose(fmt.Sprintf("Expanding group '%v' from LDAP...", group), 3)
+	verbose(3, "Expanding group '%v' from LDAP...", group)
 
 	if len(LDAPSEARCH) < 1 {
 		return
@@ -402,7 +467,7 @@ func expandLDAPGroup(group string) (members []string) {
 }
 
 func expandPrimaryGroup(group string) []string {
-	verbose(fmt.Sprintf("Expanding group '%v' by primary group membership...", group), 3)
+	verbose(3, "Expanding group '%v' by primary group membership...", group)
 
 	cmd := []string{"awk", "-F:", fmt.Sprintf("/^%v:/ { print $3}", group), "/etc/group"}
 	gid := runCommand(cmd, false)
@@ -418,7 +483,7 @@ func expandPrimaryGroup(group string) []string {
 }
 
 func expandSupplementaryGroup(group string) []string {
-	verbose(fmt.Sprintf("Expanding group '%v' by supplementary group membership...", group), 3)
+	verbose(3, "Expanding group '%v' by supplementary group membership...", group)
 
 	cmd := []string{"awk", "-F:", fmt.Sprintf("/^%v:/ { print $NF}", group), "/etc/group"}
 	output := runCommand(cmd, false)
@@ -432,7 +497,7 @@ func fail(format string, v ...interface{}) {
 }
 
 func generateHMAC(skey string, data []byte) {
-	verbose("Generating HMAC...", 2)
+	verbose(2, "Generating HMAC...")
 
 	h := hmac.New(sha256.New, []byte(skey))
 	h.Write(data)
@@ -440,7 +505,7 @@ func generateHMAC(skey string, data []byte) {
 }
 
 func getFingerPrint(pubkey rsa.PublicKey) (fp string) {
-	verbose("Generating fingerprint for raw public key...", 4)
+	verbose(4, "Generating fingerprint for raw public key...")
 
 	/* The fingerprint of a public key is just the md5 of the raw
 	 * data.  That is, we combine:
@@ -564,7 +629,7 @@ func getPubkeyFromBlob(blob []byte) (pubkey SSHKey) {
  * LDAP, then looking at any URLs.  First match wins: if we have local
  * keys, we do _not_ go and ask LDAP. */
 func getPubkeys() {
-	verbose("Identifying/retrieving ssh pubkeys...", 2)
+	verbose(2, "Identifying/retrieving ssh pubkeys...")
 
 	for group, _ := range GROUPS {
 		expandGroup(group)
@@ -579,7 +644,7 @@ func getPubkeys() {
 			continue
 		}
 
-		verbose(fmt.Sprintf("Trying to find local pubkeys for '%v'...", recipient), 2)
+		verbose(2, "Trying to find local pubkeys for '%v'...", recipient)
 		usr, err := user.Lookup(recipient)
 		if err == nil {
 			authkeys := usr.HomeDir + "/.ssh/authorized_keys"
@@ -587,10 +652,10 @@ func getPubkeys() {
 			if err == nil {
 				keys = strings.Split(strings.TrimSpace(string(content)), "\n")
 			} else {
-				verbose(fmt.Sprintf("Can't read %v/.ssh/authorized_keys...", usr.HomeDir), 2)
+				verbose(2, "Can't read %v/.ssh/authorized_keys...", usr.HomeDir)
 			}
 		} else {
-			verbose(fmt.Sprintf("No such local user: %v...", recipient), 2)
+			verbose(2, "No such local user: %v...", recipient)
 		}
 
 		if len(keys) < 1 {
@@ -613,7 +678,7 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 		return
 	}
 
-	verbose(fmt.Sprintf("Trying to get ssh pubkeys for '%v' from LDAP...", uname), 3)
+	verbose(3, "Trying to get ssh pubkeys for '%v' from LDAP...", uname)
 
 	ldapsearch := append(strings.Split(LDAPSEARCH, " "),
 		fmt.Sprintf("uid=%v", uname), LDAPFIELD)
@@ -622,7 +687,7 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 		fields := strings.Split(line, fmt.Sprintf("%v:", LDAPFIELD))
 		if len(fields) == 2 {
 			if len(onekey) > 0 {
-				verbose(fmt.Sprintf("Found key '%v'...", onekey), 4)
+				verbose(4, "Found key '%v'...", onekey)
 				tkeys = append(tkeys, onekey)
 			}
 			onekey = strings.Trim(fields[1], ": ")
@@ -632,7 +697,7 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 		}
 	}
 	if len(onekey) > 0 {
-		verbose(fmt.Sprintf("Found key '%v'...", onekey), 4)
+		verbose(4, "Found key '%v'...", onekey)
 		tkeys = append(tkeys, onekey)
 	}
 
@@ -643,10 +708,10 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 	var keys []string
 	for _, k := range tkeys {
 		if !strings.Contains(k, " ") {
-			verbose("Decoding base64 encoded key...", 4)
+			verbose(4, "Decoding base64 encoded key...")
 			decoded := decodeBase64(k)
 			if len(decoded) < 1 {
-				verbose(fmt.Sprintf("Unable to decode key '%v'.\n", k), 4)
+				verbose(4, "Unable to decode key '%v'.", k)
 				continue
 			}
 			keys = append(keys, strings.Split(string(decoded), "\n")...)
@@ -659,55 +724,28 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 }
 
 func getPubkeysFromURLs(uname string) (keys []string) {
-	verbose(fmt.Sprintf("Trying to get ssh pubkeys for '%v' from URLs...", uname), 3)
-
-	gitHubApiToken := os.Getenv("GITHUB_API_TOKEN")
-
-	client := new(http.Client)
+	verbose(3, "Trying to get ssh pubkeys for '%v' from URLs...", uname)
 
 	for site, keyurl := range URLS {
 		if !keyurl.Enabled {
 			continue
 		}
 
-		url := strings.Replace(keyurl.Url, "<user>", uname, -1)
-		verbose(fmt.Sprintf("Trying to get ssh pubkeys for '%v' from %v (%v)...", uname, site, url), 3)
-
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to create new request %v: %v\n", url, err)
-			continue
-		}
-		req.Header.Add("Accept", "text/html,application/xhtml+xml,application/xml,application/json")
-
-		if site == "GitHub" && len(gitHubApiToken) > 0 {
-			usr, err := user.Current()
-			if err != nil {
-				fail("%v", err)
-			}
-			req.SetBasicAuth(usr.Username, gitHubApiToken)
+		url := keyurl.Url
+		if site == "GitHub" {
+			url += "/users/<user>/keys"
 		}
 
-
-		resp, err := client.Do(req)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to GET %v: %v\n", url, err)
-			continue
-		}
-		body, err := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to read http response: %v\n", err)
-			continue
-		}
+		url = strings.Replace(url, "<user>", uname, -1)
+		results := getURLContents(site, url)
 
 		if site == "KeyKeeper" {
-			keys = append(keys, parseKeyKeeperJson(body)...)
+			keys = append(keys, parseKeyKeeperJson(results)...)
 		} else if site == "GitHub" {
-			keys = append(keys, parseGitHubApiJson(body)...)
+			keys = append(keys, parseKeysFromGitHubApiJson(results)...)
 		} else {
 			fmt.Fprintf(os.Stderr, "Unknown URL type, trying to just read the data.\n")
-			keys = append(keys, strings.Split(string(body), "\n")...)
+			keys = append(keys, strings.Split(string(results), "\n")...)
 		}
 	}
 
@@ -715,7 +753,7 @@ func getPubkeysFromURLs(uname string) (keys []string) {
 }
 
 func getPrivkeyFromOpenSSHBlob(blob []byte) (key *rsa.PrivateKey) {
-	verbose("Extracting RSA private key from 'OPENSSH PRIVATE KEY' blob...", 5)
+	verbose(5,  "Extracting RSA private key from 'OPENSSH PRIVATE KEY' blob...")
 
 	var dlen uint32
 	key = new(rsa.PrivateKey)
@@ -832,7 +870,7 @@ func getPrivkeyFromOpenSSHBlob(blob []byte) (key *rsa.PrivateKey) {
  * ħttps://github.com/golang/crypto/blob/master/ssh/keys.go#parseOpenSSHPrivateKey
  */
 func getRSAKeyFromOpenSSH(keyFile string, pemData []byte, block *pem.Block) (key *rsa.PrivateKey) {
-	verbose(fmt.Sprintf("Extracting RSA key from 'OPENSSH PRIVATE KEY' format in '%s'...", keyFile), 4)
+	verbose(4, "Extracting RSA key from 'OPENSSH PRIVATE KEY' format in '%s'...", keyFile)
 
 	authMagic := "openssh-key-v1"
 	if len(block.Bytes) < len(authMagic) ||
@@ -924,7 +962,7 @@ func getRSAKeyFromOpenSSH(keyFile string, pemData []byte, block *pem.Block) (key
 }
 
 func getRSAKeyFromPEM(keyFile string, pemData []byte, block *pem.Block) (key *rsa.PrivateKey) {
-	verbose(fmt.Sprintf("Extracting RSA key from PEM data in '%s'...", keyFile), 4)
+	verbose(4, "Extracting RSA key from PEM data in '%s'...", keyFile)
 
 	var err error
 	keyBytes := block.Bytes
@@ -947,7 +985,7 @@ func getRSAKeyFromPEM(keyFile string, pemData []byte, block *pem.Block) (key *rs
  * https://stackoverflow.com/questions/14404757/how-to-encrypt-and-decrypt-plain-text-with-a-rsa-keys-in-go
  */
 func getRSAKeyFromSSHFile(keyFile string) (key *rsa.PrivateKey) {
-	verbose(fmt.Sprintf("Extracting RSA key from '%s'...", keyFile), 3)
+	verbose(3, "Extracting RSA key from '%s'...", keyFile)
 
 	pemData, err := ioutil.ReadFile(keyFile)
 	if err != nil {
@@ -972,11 +1010,46 @@ func getRSAKeyFromSSHFile(keyFile string) (key *rsa.PrivateKey) {
 }
 
 func getRandomBytes(rlen int) (random_data []byte) {
-	verbose("Generating random bytes...", 2)
+	verbose(2, "Generating random bytes...")
 
 	random_data = make([]byte, rlen)
 	if _, err := rand.Read(random_data); err != nil {
 		fail("%v", err)
+	}
+
+	return
+}
+
+func getURLContents(site, url string) (data []byte) {
+	verbose(4, "Fetching '%s'...", url)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to create new request %v: %v\n", url, err)
+		return
+	}
+	req.Header.Add("Accept", "text/html,application/xhtml+xml,application/xml,application/json")
+
+	gitHubApiToken := os.Getenv("GITHUB_API_TOKEN")
+	if site == "GitHub" && len(gitHubApiToken) > 0 {
+		usr, err := user.Current()
+		if err != nil {
+			fail("%v\n", err)
+		}
+		req.SetBasicAuth(usr.Username, gitHubApiToken)
+	}
+
+	client := new(http.Client)
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to GET %v: %v\n", url, err)
+		return
+	}
+	data, err = ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to read http response: %v\n", err)
+		return
 	}
 
 	return
@@ -1038,7 +1111,7 @@ func getopts() {
 }
 
 func getpass(prompt string) (pass []byte) {
-	verbose("Getting password...", 4)
+	verbose(4, "Getting password...")
 
 	var source string
 	var passin []string
@@ -1073,16 +1146,16 @@ func getpass(prompt string) (pass []byte) {
 func getpassFromEnv(varname string) (pass []byte) {
 	pass = []byte(os.Getenv(varname))
 	if len(pass) < 1 {
-		fail("Environment variable '%v' not set.", varname)
+		fail("Environment variable '%v' not set.\n", varname)
 	}
 	return
 }
 
 func getpassFromFile(fname string) (pass []byte) {
-	verbose(fmt.Sprintf("Getting password from file '%s'...", fname), 5)
+	verbose(5, "Getting password from file '%s'...", fname)
 	file, err := os.Open(fname)
 	if err != nil {
-		fail("Unable to open '%s': %v", fname, err)
+		fail("Unable to open '%s': %v\n", fname, err)
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -1094,11 +1167,11 @@ func getpassFromFile(fname string) (pass []byte) {
 }
 
 func getpassFromUser(prompt string) (pass []byte) {
-	verbose("Getting password from user...", 5)
+	verbose(5, "Getting password from user...")
 
 	dev_tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
-		fail("%v", err)
+		fail("%v\n", err)
 	}
 
 	fmt.Fprintf(dev_tty, prompt)
@@ -1126,7 +1199,7 @@ func getpassFromUser(prompt string) (pass []byte) {
 }
 
 func identifyCorrectSessionKeyData(privfp string, keys map[string]string) (skey []byte) {
-	verbose("Identifying correct session key data...", 2)
+	verbose(2, "Identifying correct session key data...")
 
 	/* fingerprints may be "anything-fi:ng:er:pr:in:t" or "fi:ng:er:pr:in:t" */
 	fp_pattern := regexp.MustCompile("^(.+-)?(?P<fp>[[:xdigit:]:]+)$")
@@ -1147,7 +1220,7 @@ func identifyCorrectSessionKeyData(privfp string, keys map[string]string) (skey 
 }
 
 func list() {
-	verbose("Listing recipients from input...", 2)
+	verbose(2, "Listing recipients from input...")
 	parseEncryptedInput()
 }
 
@@ -1176,7 +1249,7 @@ func padBuffer(buf []byte) (padded []byte) {
  * - the session key encrypted for each recipient's public key
  * - a short version blob */
 func parseEncryptedInput() (message string, hmac string, keys map[string]string, version string) {
-	verbose("Parsing encrypted input...", 2)
+	verbose(2, "Parsing encrypted input...")
 
 	begin_re := regexp.MustCompile("^begin-base64 600 (?P<name>[^ ]+)")
 	end_re := regexp.MustCompile("^====")
@@ -1186,7 +1259,7 @@ func parseEncryptedInput() (message string, hmac string, keys map[string]string,
 	/* There's only one file when decrypting. */
 	file := FILES[0]
 
-	verbose(fmt.Sprintf("Parsing data from %v...", file), 3)
+	verbose(3, "Parsing data from %v...", file)
 
 	fd, err := os.Open(file)
 	if err != nil {
@@ -1240,26 +1313,29 @@ func parseEncryptedInput() (message string, hmac string, keys map[string]string,
 	fd.Close()
 
 	if len(garbage) > 0 {
-		fail("Garbage found in input. Aborting.")
+		fail("Garbage found in input. Aborting\n")
 	}
 
 	if len(message) < 1 || len(keys) < 1 {
-		fail("No valid jass input found.")
+		fail("No valid jass input found.\n")
 	}
 
 	return
 }
 
-func parseGitHubApiJson(data []byte) (keys []string) {
-	verbose("Parsing GitHub API json...", 4)
-	verbose(fmt.Sprintf("%v", string(data)), 5)
+func parseKeysFromGitHubApiJson(data []byte) (keys []string) {
+	verbose(4, "Parsing GitHub API json...")
+	verbose(5, string(data))
+
+	type GitHubKeys struct {
+		Id      int
+		Key     string
+	}
 
 	var gkeys []GitHubKeys
 	err := json.Unmarshal(data, &gkeys)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to parse json: %v\n", err)
-		fmt.Fprintf(os.Stderr, "%s\n", string(data))
-		fmt.Fprintf(os.Stderr, "Maybe you need to set the GITHUB_API_TOKEN environment variable?\n")
+		printGitHubApiError(data)
 		return
 	}
 
@@ -1271,8 +1347,8 @@ func parseGitHubApiJson(data []byte) (keys []string) {
 }
 
 func parseKeyKeeperJson(data []byte) (keys []string) {
-	verbose("Parsing KeyKeeper json...", 4)
-	verbose(fmt.Sprintf("%v", string(data)), 5)
+	verbose(4, "Parsing KeyKeeper json...")
+	verbose(5, string(data))
 
 	var kkeys KeyKeeperKeys
 	err := json.Unmarshal(data, &kkeys)
@@ -1288,16 +1364,33 @@ func parseKeyKeeperJson(data []byte) (keys []string) {
 	return
 }
 
+func printGitHubApiError(data []byte) {
+	var errMsg map[string]string
+	err := json.Unmarshal(data, &errMsg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to parse json: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", string(data))
+		fmt.Fprintf(os.Stderr, "Maybe you need to set the GITHUB_API_TOKEN environment variable?\n")
+	} else {
+		/* Any message suggests an error, e.g. no such user. */
+		if m, found := errMsg["message"]; found {
+			fmt.Fprintf(os.Stderr, "here: %s\n", m)
+		} else {
+			fmt.Fprintf(os.Stderr, "Unexpected json results:\n%s\n", string(data))
+		}
+	}
+}
+
 func printVersion() {
 	fmt.Printf("%v version %v\n", PROGNAME, VERSION)
 }
 
 func readInputFiles(c chan []byte) {
-	verbose("Reading input from all files...", 2)
+	verbose(2, "Reading input from all files...")
 
 	alldata := make([]byte, 0)
 	for _, file := range FILES {
-		verbose(fmt.Sprintf("Encrypting data from %v...", file), 3)
+		verbose(3, "Encrypting data from %v...", file)
 		data, err := ioutil.ReadFile(file)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -1313,7 +1406,7 @@ func runCommand(args []string, need_tty bool) string {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	verbose(fmt.Sprintf("Running: %v", strings.Join(args, " ")), 4)
+	verbose(4, "Running: %v", strings.Join(args, " "))
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -1321,13 +1414,13 @@ func runCommand(args []string, need_tty bool) string {
 	if need_tty {
 		dev_tty, err := os.Open("/dev/tty")
 		if err != nil {
-			fail("%v", err)
+			fail("%v\n", err)
 		}
 		cmd.Stdin = dev_tty
 	}
 	err := cmd.Run()
 	if err != nil {
-		fail("Unable to run '%v':\n%v\n%v", strings.Join(args, " "), stderr.String(), err)
+		fail("Unable to run '%v':\n%v\n%v\n", strings.Join(args, " "), stderr.String(), err)
 	}
 	return strings.TrimSpace(stdout.String())
 }
@@ -1335,18 +1428,18 @@ func runCommand(args []string, need_tty bool) string {
 func runCommandStdinPipe(cmd *exec.Cmd) (pipe io.WriteCloser) {
 	pipe, err := cmd.StdinPipe()
 	if err != nil {
-		fail("Unable to create pipe to command: %v", err)
+		fail("Unable to create pipe to command: %v\n", err)
 	}
 	err = cmd.Start()
 	if err != nil {
-		fail("Unable to run pipe to command: %v", err)
+		fail("Unable to run pipe to command: %v\n", err)
 	}
 
 	return
 }
 
 func sshToPubkey(key string) (pubkey SSHKey) {
-	verbose("Converting SSH input into a public key...", 3)
+	verbose(3, "Converting SSH input into a public key...")
 
 	/* Many users have DSS keys stored in addition to RSA keys.  When
 	 * multiple keys are used, having an error for what is a valid SSH
@@ -1396,7 +1489,7 @@ func stty(arg string) {
 
 	err := exec.Command("/bin/stty", flag, "/dev/tty", arg).Run()
 	if err != nil {
-		fail("Unable to run stty on /dev/tty: %v", err)
+		fail("Unable to run stty on /dev/tty: %v\n", err)
 	}
 }
 
@@ -1431,7 +1524,7 @@ func usage(out io.Writer) {
 }
 
 func uuencode(name string, msg []byte) {
-	verbose(fmt.Sprintf("Uuencoding %v...", name), 3)
+	verbose(3, "Uuencoding %v...", name)
 
 	/* Earlier versions of jass(1) used uuencode(1), so we mimic the
 	 * same behaviour here for backwards compatibility. */
@@ -1446,7 +1539,7 @@ func uuencode(name string, msg []byte) {
 }
 
 func varCheck() {
-	verbose("Checking that all variables look ok...", 1)
+	verbose(1, "Checking that all variables look ok...")
 
 	if len(FILES) < 1 {
 		FILES = append(FILES, "/dev/stdin")
@@ -1493,27 +1586,27 @@ func varCheck() {
 }
 
 func varCheckDecrypt() {
-	verbose("Checking that all variables look ok for decrypting...", 2)
+	verbose(2, "Checking that all variables look ok for decrypting...")
 	if len(RECIPIENTS) != 0 || len(GROUPS) != 0 {
-		fail("You cannot specify any recipients when decrypting.")
+		fail("You cannot specify any recipients when decrypting.\n")
 	}
 
 	if len(FILES) == 0 {
 		FILES = append(FILES, "/dev/stdin")
 	} else if len(FILES) > 1 {
-		fail("You can only decrypt one file at a time.")
+		fail("You can only decrypt one file at a time.\n")
 	}
 
 	if len(KEY_FILES) == 0 {
-		verbose("No key specified, trying ~/.ssh/id_rsa...", 2)
+		verbose(2, "No key specified, trying ~/.ssh/id_rsa...")
 		usr, err := user.Current()
 		if err != nil {
-			fail("%v", err)
+			fail("%v\n", err)
 		}
 		privkey := usr.HomeDir + "/.ssh/id_rsa"
 		KEY_FILES[privkey] = true
 	} else if len(KEY_FILES) > 1 {
-		fail("Please only specify a single key file when decrypting.")
+		fail("Please only specify a single key file when decrypting.\n")
 	}
 
 	var keys []string
@@ -1523,7 +1616,7 @@ func varCheckDecrypt() {
 
 	privkey, err := ioutil.ReadFile(keys[0])
 	if err != nil {
-		fail("%v", err)
+		fail("%v\n", err)
 	}
 
 	if strings.Contains(string(privkey), OPENSSH_RSA_KEY_SUBSTRING) {
@@ -1532,7 +1625,7 @@ func varCheckDecrypt() {
 }
 
 func varCheckEncrypt() {
-	verbose("Checking that all variables look ok for encrypting...", 2)
+	verbose(2, "Checking that all variables look ok for encrypting...")
 	if len(KEY_FILES) > 0 {
 		for file, _ := range KEY_FILES {
 			keys, err := ioutil.ReadFile(file)
@@ -1547,7 +1640,7 @@ func varCheckEncrypt() {
 				if strings.Contains(line, OPENSSH_RSA_KEY_SUBSTRING) {
 					key_data = append(key_data, line)
 				} else {
-					verbose(fmt.Sprintf("Not a public ssh key, ignoring: '%v'\n", line), 3)
+					verbose(3, "Not a public ssh key, ignoring: '%v'\n", line)
 				}
 			}
 			RECIPIENTS[file] = key_data
@@ -1558,7 +1651,7 @@ func varCheckEncrypt() {
 }
 
 func varCheckList() {
-	verbose("Checking that all variables look ok for listing...", 2)
+	verbose(2, "Checking that all variables look ok for listing...")
 	if len(RECIPIENTS) != 0 || len(GROUPS) != 0 {
 		fail("You cannot specify any recipients when listing recipients.")
 	}
@@ -1568,17 +1661,17 @@ func varCheckList() {
 	}
 }
 
-func verbose(msg string, level int) {
+func verbose(level int, format string, v ...interface{}) {
 	if level <= VERBOSITY {
 		for i := 0; i < level; i++ {
 			fmt.Fprintf(os.Stderr, "=")
 		}
-		fmt.Fprintf(os.Stderr, "> %v\n", msg)
+		fmt.Fprintf(os.Stderr, "> "+format+"\n", v...)
 	}
 }
 
 func verifyHMAC(key, message, givenHMAC []byte) {
-	verbose("Verifying HMAC...", 2)
+	verbose(2, "Verifying HMAC...")
 	h := hmac.New(sha256.New, key)
 	h.Write(message)
 	calculatedHMAC := h.Sum(nil)

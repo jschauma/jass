@@ -1,3 +1,8 @@
+* Sat Jan 04 2020 - jschauma@netmeister.org
+- 6.1
+-  add support for GitHub teams
+-  change diagnostics to variadic functions
+
 * Wed Oct 23 2019 - jschauma@netmeister.org
 - 6.0
 -  add support for an HMAC to verify the message

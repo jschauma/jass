@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd October 22, 2019
+.Dd January 03, 2020
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -87,6 +87,9 @@ If
 was specified,
 .Nm
 will expand the given group to individual users.
+This expansion will include local and LDAP groups (if
+LDAP is enabled) as well as GitHub teams (see Section
+GITHUB SERVICE).
 .Pp
 For each user,
 .Nm
@@ -209,6 +212,14 @@ can look for public SSH keys on a GitHub service.
 The URL to use for this can be set via the GITHUB_URL
 environment variable.
 .Pp
+If this variable is set,
+.Nm
+will retrieve keys for users from GitHub as well as
+expand groups specified via
+.Fl g
+as GitHub teams in the format "org/team" or
+"numeric-team-id".
+.Pp
 If you use an internal GitHub instance that requires
 authentication, then
 .Nm
@@ -268,7 +279,7 @@ jass -u user1 -u user2 -u user3 <data
 To encrypt data using the internal GitHub instance
 with Basic HTTP Auth:
 .Bd -literal -offset indent
-export GITHUB_URL="https://git.example.com/api/v3/users/<user>/keys"
+export GITHUB_URL="https://git.example.com/api/v3"
 export GITHUB_API_TOKEN="abcdef0123456789abcdef0123456789abcdef01"
 jass -u user1 <data
 .Ed
@@ -279,22 +290,18 @@ will require the variables LDAPFIELD and LDAPSEARCH to be set.
 You can either edit the script and set them in there, or export them in
 your environment.
 .Pp
-Additional environment variables honored by
-.Nm
- are shown below with example values.
+The following are example values.
 .Bl -tag -width GITHUB_API_TOKEN_
 .It LDAPFIELD
 SSHPubkey
 .It LDAPSEARCH
 ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
-.It GITHUB_URL
-https://api.github.com/users/<user>/keys
-.It GITHUB_API_TOKEN
-abcdef0123456789abcdef0123456789abcdef01
-.It JASS_NO_HMAC
-feeling_lucky
 .It KEYKEEPER_URL
 https://keykeeper.tld/keys?user=<user>
+.It GITHUB_URL
+https://api.github.com/
+.It GITHUB_API_TOKEN
+abcdef0123456789abcdef0123456789abcdef01
 .El
 .Pp
 When setting the KEYKEEPER_URL environment
@@ -317,7 +324,7 @@ internal GitHub instance, you could invoke
 .Nm
 as follows:
 .Bd -literal -offset indent
-$ export GITHUB_URL="https://git.your.internal.site/api/v3/users/<user>/keys"
+$ export GITHUB_URL="https://git.your.internal.site/api/v3"
 $ jass -u jdoe <data
 .Ed
 .Sh SEE ALSO
