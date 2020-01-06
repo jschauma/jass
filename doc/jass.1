@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd January 03, 2020
+.Dd January 05, 2020
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -292,16 +292,18 @@ your environment.
 .Pp
 The following are example values.
 .Bl -tag -width GITHUB_API_TOKEN_
-.It LDAPFIELD
-SSHPubkey
-.It LDAPSEARCH
-ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
-.It KEYKEEPER_URL
-https://keykeeper.tld/keys?user=<user>
 .It GITHUB_URL
 https://api.github.com/
 .It GITHUB_API_TOKEN
 abcdef0123456789abcdef0123456789abcdef01
+.It JASS_NO_HMAC
+feeling_lucky
+.It KEYKEEPER_URL
+https://keykeeper.tld/keys?user=<user>
+.It LDAPFIELD
+SSHPubkey
+.It LDAPSEARCH
+ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
 .El
 .Pp
 When setting the KEYKEEPER_URL environment

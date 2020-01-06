@@ -198,16 +198,18 @@ ENVIRONMENT
 
      The following are example values.
 
+     GITHUB_URL		https://api.github.com/
+
+     GITHUB_API_TOKEN	abcdef0123456789abcdef0123456789abcdef01
+
+     JASS_NO_HMAC	feeling_lucky
+
+     KEYKEEPER_URL	https://keykeeper.tld/keys?user=<user>
+
      LDAPFIELD		SSHPubkey
 
      LDAPSEARCH		ldapsearch -LLLxh ldap.yourdomain.com -b dc=exam-
 			ple,dc=com
-
-     KEYKEEPER_URL	https://keykeeper.tld/keys?user=<user>
-
-     GITHUB_URL		https://api.github.com/
-
-     GITHUB_API_TOKEN	abcdef0123456789abcdef0123456789abcdef01
 
      When setting the KEYKEEPER_URL environment variable to a URL to be used
      as a KeyKeeper service, the string "<user>" will be replaced by the -u
@@ -240,4 +242,4 @@ HISTORY
      jass was originally written by Jan Schaumann <jschauma@netmeister.org> in
      April 2013.
 
-NetBSD 8.0		       January 03, 2020			    NetBSD 8.0
+NetBSD 8.0		       January 05, 2020			    NetBSD 8.0
