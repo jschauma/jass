@@ -20,7 +20,6 @@ help:
 	@echo "sign       sign the RPM and OS X package"
 	@echo "test       run tests under tests/"
 	@echo "           set DO_LDAP=1 to run LDAP related tests"
-	@echo "           set KEYKEEPER_URL to test KeyKeeper functionality"
 	@echo "           set ALL=1 to run all tests"
 	@echo "uninstall  uninstall ${NAME} from ${PREFIX}"
 	@echo "upload     upload packages to ${PUBHOST}"

@@ -58,11 +58,9 @@ var LDAPSEARCH = ""
 
 /* You can enable default URLs here, if you so choose. */
 var GITHUB_URL = "https://api.github.com"
-var KEYKEEPER_URL = ""
 
 var URLS = map[string]*KeyURL{
 	"GitHub":    {GITHUB_URL, true},
-	"KeyKeeper": {KEYKEEPER_URL, false},
 }
 
 /* You should not need to make any changes below this line. */
@@ -75,7 +73,7 @@ const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 const OPENSSH_DSS_KEY_SUBSTRING = "ssh-dss AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "6.1"
+const VERSION = "7.0"
 
 var ACTION = "encrypt"
 
@@ -91,23 +89,6 @@ type KeyURL struct {
 type SSHKey struct {
 	Key         rsa.PublicKey
 	Fingerprint string
-}
-
-type KeyKeeperKeys struct {
-	Result struct {
-		Keys struct {
-			Key []struct {
-				Trust     string
-				Content   string
-				Sudo      string
-				Type      string
-				Validated string
-				Api       string
-			}
-		}
-		Status string
-		User   string
-	}
 }
 
 var GROUPS = map[string]bool{}
@@ -739,9 +720,7 @@ func getPubkeysFromURLs(uname string) (keys []string) {
 		url = strings.Replace(url, "<user>", uname, -1)
 		results := getURLContents(site, url)
 
-		if site == "KeyKeeper" {
-			keys = append(keys, parseKeyKeeperJson(results)...)
-		} else if site == "GitHub" {
+		if site == "GitHub" {
 			keys = append(keys, parseKeysFromGitHubApiJson(results)...)
 		} else {
 			fmt.Fprintf(os.Stderr, "Unknown URL type, trying to just read the data.\n")
@@ -1346,24 +1325,6 @@ func parseKeysFromGitHubApiJson(data []byte) (keys []string) {
 	return
 }
 
-func parseKeyKeeperJson(data []byte) (keys []string) {
-	verbose(4, "Parsing KeyKeeper json...")
-	verbose(5, string(data))
-
-	var kkeys KeyKeeperKeys
-	err := json.Unmarshal(data, &kkeys)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to parse json: %v\n", err)
-		return
-	}
-
-	for _, k := range kkeys.Result.Keys.Key {
-		keys = append(keys, k.Content)
-	}
-
-	return
-}
-
 func printGitHubApiError(data []byte) {
 	var errMsg map[string]string
 	err := json.Unmarshal(data, &errMsg)
@@ -1553,14 +1514,6 @@ func varCheck() {
 	ldapsearch := os.Getenv("LDAPSEARCH")
 	if len(ldapsearch) > 1 {
 		LDAPSEARCH = ldapsearch
-	}
-
-	keykeeper_url, found := os.LookupEnv("KEYKEEPER_URL")
-	if len(keykeeper_url) > 1 {
-		URLS["KeyKeeper"].Url = keykeeper_url
-		URLS["KeyKeeper"].Enabled = true
-	} else if found {
-		URLS["KeyKeeper"].Enabled = false
 	}
 
 	github_url, found := os.LookupEnv("GITHUB_URL")

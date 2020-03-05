@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd January 05, 2020
+.Dd March 04, 2020
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -174,38 +174,6 @@ refer to a device or named pipe.
 Note that standard Unix file access controls should be used to protect
 this file.
 .El
-.Sh KEYKEEPER SERVER
-.Nm
-can query a "KeyKeeper" server to retrieve public SSH
-keys.
-The URL to retrieve keys on a per-user basis is
-derived from the
-.Ar KEYKEEPER_URL
-environment variable.
-.Pp
-When doing so, it expects the server to respond with
-JSON data in the format of:
-.Bd -literal -offset indent
-{
-  "result" : {
-    "keys" : {
-      "key" : [
-        {
-          "trust"     : "string",
-          "content"   : "ssh-rsa AAAAB3NzaC1...",
-          "sudo"      : "string",
-          "type"      : "string",
-          "validated" : "string",
-          "api"       : "string"
-        },
-        ...
-      ]
-    },
-    "status" : "string",
-    "user"   : "string"
-  }
-}
-.Ed
 .Sh GITHUB SERVICE
 .Nm
 can look for public SSH keys on a GitHub service.
@@ -298,30 +266,13 @@ https://api.github.com/
 abcdef0123456789abcdef0123456789abcdef01
 .It JASS_NO_HMAC
 feeling_lucky
-.It KEYKEEPER_URL
-https://keykeeper.tld/keys?user=<user>
 .It LDAPFIELD
 SSHPubkey
 .It LDAPSEARCH
 ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com
 .El
 .Pp
-When setting the KEYKEEPER_URL environment
-variable to a URL to be used as a KeyKeeper service,
-the string "<user>" will be replaced by the
-.Fl u
-argument.
-.Pp
-Setting this environment variable simultaneously
-enables a lookup of user keys using this KeyKeeper
-service.
-For example:
-.Bd -literal -offset indent
-$ export KEYKEEPER_URL="https://keykeeper.tld/keys?user=<user>"
-$ jass -u jdoe <data
-.Ed
-.Pp
-Likewise, retrieving public SSH keys from your
+In order to retrieve public SSH keys from your
 internal GitHub instance, you could invoke
 .Nm
 as follows:

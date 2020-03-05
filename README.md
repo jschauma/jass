@@ -115,34 +115,6 @@ Basic HTTP Auth.   This token will require `read:org`
 and `read:user` privileges.
 
 
-KeyKeeper Server
-----------------
-jass(1) can query a "KeyKeeper" server to retrieve public SSH keys.  When
-doing so, it expects the server to respond with JSON data in the format
-of:
-
-```
-{
-  "result" : {
-    "keys" : {
-      "key" : [
-        {
-          "trust"     : "string",
-          "content"   : "ssh-rsa AAAAB3NzaC1...",
-          "sudo"      : "string",
-          "type"      : "string",
-          "validated" : "string",
-          "api"       : "string"
-        },
-        ...
-      ]
-    },
-    "status" : "string",
-    "user"   : "string"
-  }
-}
-```
-
 How to use jass(1)
 ==================
 
