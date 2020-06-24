@@ -11,7 +11,7 @@ set -eu
 NAME="jass"
 _PREFIX="${PREFIX:-/usr/local}"
 
-_FETCH="curl -s -o"
+_FETCH="curl -# -o"
 _GITHUB_URL="https://raw.githubusercontent.com/jschauma/${NAME}/master"
 _UNAME="$(uname | tr '[A-Z]' '[a-z]')"
 _UNAME_M="$(uname -m)"
@@ -70,11 +70,13 @@ cleanup() {
 }
 
 fetchFiles() {
+	echo "=> Fetching jass binary for ${_UNAME}/${_UNAME_M}..."
 	${_FETCH} "${_TDIR}/${NAME}.${_UNAME}" "${_GITHUB_URL}/binaries/${NAME}.${_UNAME}" || {
 		echo "Unable to fetch '${_GITHUB_URL}/binaries/${NAME}.${_UNAME}'." >&2
 		exit 1
 		# NOTREACHED
 	}
+	echo "=> Fetching jass manual page..."
 	${_FETCH} "${_TDIR}/${NAME}.1" "${_GITHUB_URL}/doc/${NAME}.1" || {
 		echo "Unable to fetch '${_GITHUB_URL}/binaries/${NAME}.${_UNAME}'." >&2
 		exit 1
@@ -83,6 +85,7 @@ fetchFiles() {
 }
 
 installFiles() {
+	echo "=> Installing files into ${_PREFIX}..."
         mkdir -p "${_PREFIX}/bin" "${_PREFIX}/share/man/man1"
         install -c -m 0555 "${_TDIR}/${NAME}.${_UNAME}" "${_PREFIX}/bin/${NAME}"
         install -c -m 0555 "${_TDIR}/${NAME}.1" "${_PREFIX}/share/man/man1/${NAME}.1"
@@ -99,3 +102,5 @@ trap 'cleanup' 0
 checkOS
 fetchFiles
 installFiles
+
+echo "jass(1) installed into ${_PREFIX}; please see the manual page for details."

@@ -20,6 +20,18 @@ for further details.
 Installation
 ============
 
+If you like to live fast and fetch binaries from the
+internet, you can install jass(1) via e.g.:
+
+```
+$ curl -s https://raw.githubusercontent.com/jschauma/jass/master/src/install.sh | sh
+```
+
+This will fetch the binary and manual page and attempt
+to install it under `${PREFIX}`.  If you don't have
+write access to `${PREFIX}`, add sudo(8) before `sh`.
+
+
 If you're on Mac OS X, you can install [this
 package](https://github.com/jschauma/jass/raw/master/packages/dmgs/jass.dmg);
 that package is signed with my PGP key
