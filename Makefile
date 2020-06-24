@@ -8,10 +8,12 @@ HOST?="jumphost"
 PUBHOST?="pubhost:dir/"
 DSTROOT=osx/dstroot
 PREFIX?=/usr/local
+OS!=uname
 
 help:
 	@echo "The following targets are available:"
-	@echo "build      build the executable"
+	@echo "binaries   build all supported binaries"
+	@echo "build      build the executable for ${OS}"
 	@echo "clean      remove temporary build files"
 	@echo "install    install ${NAME} into ${PREFIX}"
 	@echo "osxpkg     create an OS X package of ${NAME}-${VERSION}"
@@ -31,7 +33,25 @@ spec: rpm/${NAME}.spec
 rpm/${NAME}.spec: rpm/${NAME}.spec.in
 	cat $< CHANGES | sed -e "s/VERSION/${VERSION}/" >$@
 
+binaries: binaries/${NAME}.darwin binaries/${NAME}.freebsd binaries/${NAME}.linux binaries/${NAME}.netbsd binaries/${NAME}.openbsd
+
+binaries/${NAME}.darwin: src/${NAME}.go
+	env GOOS=darwin go build -o $@ $<
+
+binaries/${NAME}.freebsd: src/${NAME}.go
+	env GOOS=freebsd go build -o $@ $<
+
+binaries/${NAME}.linux: src/${NAME}.go
+	env GOOS=linux go build -o $@ $<
+
+binaries/${NAME}.netbsd: src/${NAME}.go
+	env GOOS=netbsd go build -o $@ $<
+
+binaries/${NAME}.openbsd : src/${NAME}.go
+	env GOOS=openbsd go build -o $@ $<
+
 build: src/${NAME}
+
 
 src/${NAME}: src/${NAME}.go
 	go build -o src/${NAME} src/${NAME}.go
