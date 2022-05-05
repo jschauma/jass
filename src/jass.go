@@ -1636,12 +1636,6 @@ func varCheckEncrypt() {
 	} else if len(RECIPIENTS) == 0 && len(GROUPS) == 0 {
 		fail("You need to provide either a key file, a group, or a username.")
 	}
-
-	if len(CMD) > 0 {
-		if _, err := os.Stat(CMD); err != nil {
-			fail("Unable to stat '%s': %s", CMD, err)
-		}
-	}
 }
 
 func varCheckList() {
