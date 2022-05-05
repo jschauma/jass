@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd March 04, 2020
+.Dd May 05, 2022
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -11,6 +11,7 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl Vdehlv
+.Op Fl c Ar cmd
 .Op Fl f Ar file
 .Op Fl g Ar group
 .Op Fl k Ar key
@@ -29,11 +30,16 @@ The following options are supported by
 .Bl -tag -width _p_passin_
 .It Fl V
 Print version number and exit.
+.It Fl c Ar cmd
+Use this command to retrieve the public key.
+See
+.Xr "FINDING PUBKEYS"
+for details.
+.It Fl d
+Perform decryption.
 .It Fl e
 Perform encryption.
 This is the default.
-.It Fl d
-Perform decryption.
 .It Fl f Ar file
 Encrypt/decrypt this file.
 If not specified,
@@ -76,42 +82,9 @@ generate a 256 bit session key, and then encrypt the session key using the
 public RSA key.
 The data itself is encrypted using AES-256-CBC mode with said session key.
 .Pp
-As an alternative to providing a public key, a recipient may also be
-specified via the
-.Fl g
-and
-.Fl u
-flags.
-If
-.Fl g
-was specified,
 .Nm
-will expand the given group to individual users.
-This expansion will include local and LDAP groups (if
-LDAP is enabled) as well as GitHub teams (see Section
-GITHUB SERVICE).
-.Pp
-For each user,
-.Nm
-will first look for that user's ~/.ssh/authorized_keys file, then the file
-/etc/ssh/authorized_keys/<user>.
-.Pp
-If neither of these is readable, and LDAP is configured as a default,
-it will look for the field designated by the
-.Ar LDAPFIELD
-environment variable for the given username in LDAP.
-.Pp
-Alternatively,
-.Nm
-may look on a 'KeyKeeper' server or on an internal or
-public GitHub service for the public key associated with
-the user.
-.Pp
-Eventually,
-.Nm
-will attempt to encrypt the data for each of the public keys found.
-.Pp
-The output from
+will attempt to encrypt the data for each of the public keys found;
+the output from
 .Nm
 consists of several
 .Xr uuencode 1 Ns ed
@@ -121,8 +94,8 @@ The following files are the session key encrypted for
 each of the public keys, followed by version
 information.
 .Nm
-will properly extract, decode and use the session
-suitable key when the
+will properly extract, decode and use the suitable
+session key when the
 .Fl d
 flag is specified.
 .Pp
@@ -150,6 +123,50 @@ If the user wants to proceed and decrypt the data
 without the use of an HMAC, then they may set the
 .Ar JASS_NO_HMAC
 environment variable.
+.Sh FINDING PUBKEYS
+.Nm
+has several ways of finding the public key of the
+recipient(s) when encrypting data.
+If no public key file is provided via the
+.Fl k
+flag, then a recipient may also be specified via the
+.Fl g
+and
+.Fl u
+flags.
+If
+.Fl g
+was specified,
+.Nm
+will expand the given group to individual users.
+This expansion will include local and LDAP groups (if
+LDAP is enabled) as well as GitHub teams (see Section
+GITHUB SERVICE).
+.Pp
+For each user,
+.Nm
+will first look for that user's ~/.ssh/authorized_keys file, then the file
+/etc/ssh/authorized_keys/<user>.
+.Pp
+If neither of these is readable, and LDAP is configured by setting the
+.Ar LDAPSEARCH
+environment variable, then it will look for the field designated by the
+.Ar LDAPFIELD
+environment variable for the given username in LDAP.
+.Pp
+Alternatively,
+.Nm
+may look on a GitHub service (either public GitHub, or
+an internal GitHub instance) for the public
+key associated with the user.
+.Pp
+Lastly, the user can also specify a separate command
+to retrieve the public key of a user via the
+.Fl c
+flag.
+The given command is executed passing a single
+recipient name (i.e., a username) and should return a
+public ssh keys in OpenSSH's default format, one per line.
 .Sh PASS PHRASE ARGUMENTS
 .Nm
 allows you to specify the passphrase for your private key via one of the
@@ -250,6 +267,22 @@ with Basic HTTP Auth:
 export GITHUB_URL="https://git.example.com/api/v3"
 export GITHUB_API_TOKEN="abcdef0123456789abcdef0123456789abcdef01"
 jass -u user1 <data
+.Ed
+.Pp
+If you have a simple SSH Pubkey Store that returns a
+list of public keys for a user via a simple HTTP GET
+request, you could create a helper script and then use
+the
+.Fl c
+flag as follows:
+.Bd -literal -offset indent
+cat >fetchkeys <<EOF
+#! /bin/sh
+curl -s https://internal.example.com/pubkeys/$1
+EOF
+chmod a+rx fetchkeys
+jass -u user1 -c ./fetchkeys <data
+.Ed
 .Ed
 .Sh ENVIRONMENT
 When attempting to query LDAP for public keys,

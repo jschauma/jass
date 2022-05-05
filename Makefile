@@ -15,6 +15,7 @@ help:
 	@echo "binaries   build all supported binaries"
 	@echo "build      build the executable for ${OS}"
 	@echo "clean      remove temporary build files"
+	@echo "doc        format man page into .txt"
 	@echo "install    install ${NAME} into ${PREFIX}"
 	@echo "osxpkg     create an OS X package of ${NAME}-${VERSION}"
 	@echo "release    get everything ready for a new release"
@@ -25,6 +26,11 @@ help:
 	@echo "           set ALL=1 to run all tests"
 	@echo "uninstall  uninstall ${NAME} from ${PREFIX}"
 	@echo "upload     upload packages to ${PUBHOST}"
+
+doc: doc/${NAME}.1.txt
+
+doc/${NAME}.1.txt: doc/${NAME}.1
+	mandoc -c -O width=80 $? | col -b >$@
 
 rpm: spec buildrpm
 

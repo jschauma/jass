@@ -49,8 +49,15 @@ import (
 Set these two variables to match your use of LDAP for ssh keys, if any.
 Note: jass works perfectly fine without the use of LDAP.
 
+'<USER>' will be replaced with the username for whom
+jass is trying to encrypt the data.
+
 var LDAPFIELD = "SSHPubkey"
-var LDAPSEARCH = "ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com"
+var LDAPSEARCH = "ldapsearch -LLLxh ldap.yourdomain.com -b dc=example,dc=com uid=<USER>"
+
+These variables are here in case you want to hardcode
+LDAP use into the tool; otherwise, simply set them as
+environment variables.
 
 */
 var LDAPFIELD = ""
@@ -60,7 +67,7 @@ var LDAPSEARCH = ""
 var GITHUB_URL = "https://api.github.com"
 
 var URLS = map[string]*KeyURL{
-	"GitHub":    {GITHUB_URL, true},
+	"GitHub": {GITHUB_URL, true},
 }
 
 /* You should not need to make any changes below this line. */
@@ -73,10 +80,11 @@ const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 const OPENSSH_DSS_KEY_SUBSTRING = "ssh-dss AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "7.0"
+const VERSION = "7.1"
 
 var ACTION = "encrypt"
 
+var CMD string
 var FILES []string
 var KEY_FILES = map[string]bool{}
 var PASSIN string
@@ -122,7 +130,7 @@ func main() {
 
 func argcheck(flag string, args []string, i int) {
 	if len(args) <= (i + 1) {
-		fail("'%v' needs an argument\n", flag)
+		fail("'%v' needs an argument", flag)
 	}
 }
 
@@ -181,7 +189,7 @@ func convertPubkeys() {
 	}
 
 	if len(PUBKEYS) < 1 {
-		fail("No valid public keys found.\n")
+		fail("No valid public keys found.")
 	}
 }
 
@@ -250,7 +258,7 @@ func decryptMessage(msg []byte, skey []byte) {
 	key, iv := bytesToKey(skey, salt)
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		fail("Unable to set up new cipher: %s\n", err)
+		fail("Unable to set up new cipher: %s", err)
 	}
 
 	if len(msg)%aes.BlockSize != 0 {
@@ -309,7 +317,7 @@ func encryptData(skey string) {
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		fail("Unable to create new cipher: %v\n", err)
+		fail("Unable to create new cipher: %v", err)
 	}
 
 	mode := cipher.NewCBCEncrypter(block, iv)
@@ -321,7 +329,7 @@ func encryptData(skey string) {
 }
 
 func encryptSessionKey(skey string) {
-	verbose(2,  "Encrypting session key...")
+	verbose(2, "Encrypting session key...")
 
 	for recipient, pubkeys := range PUBKEYS {
 		for _, key := range pubkeys {
@@ -410,7 +418,7 @@ func expandGroup(group string) {
 	 * not allow '/' in local group names. */
 	if !strings.Contains(group, "/") {
 		members = expandSupplementaryGroup(group)
-	members = append(members, expandPrimaryGroup(group)...)
+		members = append(members, expandPrimaryGroup(group)...)
 	}
 
 	if len(LDAPSEARCH) > 0 {
@@ -536,7 +544,6 @@ func getFingerPrint(pubkey rsa.PublicKey) (fp string) {
 	return
 }
 
-
 func getPubkeyFromBlob(blob []byte) (pubkey SSHKey) {
 	/* Based on:
 	 * http://cpansearch.perl.org/src/MALLEN/Convert-SSH2-0.01/lib/Convert/SSH2.pm
@@ -559,11 +566,10 @@ func getPubkeyFromBlob(blob []byte) (pubkey SSHKey) {
 	 */
 
 	const (
-		keyTypeField = iota
+		keyTypeField  = iota
 		exponentField = iota
-		modulusField = iota
+		modulusField  = iota
 	)
-
 
 	var k rsa.PublicKey
 	n := 0
@@ -605,7 +611,6 @@ func getPubkeyFromBlob(blob []byte) (pubkey SSHKey) {
 	return
 }
 
-
 /* Pubkeys are retrieved by first trying local files, then looking in
  * LDAP, then looking at any URLs.  First match wins: if we have local
  * keys, we do _not_ go and ask LDAP. */
@@ -640,6 +645,9 @@ func getPubkeys() {
 		}
 
 		if len(keys) < 1 {
+			keys = append(keys, getPubkeysCommand(recipient)...)
+		}
+		if len(keys) < 1 {
 			keys = append(keys, getPubkeysFromLDAP(recipient)...)
 		}
 		if len(keys) < 1 {
@@ -652,8 +660,22 @@ func getPubkeys() {
 	}
 }
 
-func getPubkeysFromLDAP(uname string) (tkeys []string) {
+func getPubkeysCommand(uname string) (keys []string) {
+	if len(CMD) < 1 {
+		return
+	}
+
+	verbose(3, "Trying to get ssh pubkeys by running '%s %s'...", CMD, uname)
+
+	cmd := []string{CMD, uname}
+	results := runCommand(cmd, false)
+	keys = append(keys, strings.Split(string(results), "\n")...)
+	return
+}
+
+func getPubkeysFromLDAP(uname string) (keys []string) {
 	var onekey string
+	tkeys := []string{}
 
 	if len(LDAPSEARCH) < 1 {
 		return
@@ -661,8 +683,9 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 
 	verbose(3, "Trying to get ssh pubkeys for '%v' from LDAP...", uname)
 
-	ldapsearch := append(strings.Split(LDAPSEARCH, " "),
-		fmt.Sprintf("uid=%v", uname), LDAPFIELD)
+	lds := strings.ReplaceAll(LDAPSEARCH, "<USER>", uname)
+
+	ldapsearch := append(strings.Split(lds, " "), LDAPFIELD)
 	ldapout := runCommand(ldapsearch, false)
 	for _, line := range strings.Split(ldapout, "\n") {
 		fields := strings.Split(line, fmt.Sprintf("%v:", LDAPFIELD))
@@ -686,7 +709,6 @@ func getPubkeysFromLDAP(uname string) (tkeys []string) {
 	 * Keys may be base64, in which case (we assume) it will not
 	 * contain any spaces, otherwise required for a valid ssh key.
 	 */
-	var keys []string
 	for _, k := range tkeys {
 		if !strings.Contains(k, " ") {
 			verbose(4, "Decoding base64 encoded key...")
@@ -732,7 +754,7 @@ func getPubkeysFromURLs(uname string) (keys []string) {
 }
 
 func getPrivkeyFromOpenSSHBlob(blob []byte) (key *rsa.PrivateKey) {
-	verbose(5,  "Extracting RSA private key from 'OPENSSH PRIVATE KEY' blob...")
+	verbose(5, "Extracting RSA private key from 'OPENSSH PRIVATE KEY' blob...")
 
 	var dlen uint32
 	key = new(rsa.PrivateKey)
@@ -766,16 +788,16 @@ func getPrivkeyFromOpenSSHBlob(blob []byte) (key *rsa.PrivateKey) {
 	 * - an array of primes (iqmp, p, q)
 	 */
 	const (
-		checkint1Field = iota
-		checkint2Field = iota
-		pubkeyTypeField = iota
-		pubkeyModulusField = iota
-		pubkeyExponentField = iota
+		checkint1Field       = iota
+		checkint2Field       = iota
+		pubkeyTypeField      = iota
+		pubkeyModulusField   = iota
+		pubkeyExponentField  = iota
 		privkeyExponentField = iota
-		privkeyPrimesIqmp= iota
-		privkeyPrimesP= iota
-		privkeyPrimesQ = iota
-		privkeyComment = iota
+		privkeyPrimesIqmp    = iota
+		privkeyPrimesP       = iota
+		privkeyPrimesQ       = iota
+		privkeyComment       = iota
 	)
 
 	n := 0
@@ -792,7 +814,7 @@ func getPrivkeyFromOpenSSHBlob(blob []byte) (key *rsa.PrivateKey) {
 		case checkint2Field:
 			blob = blob[4:]
 			checkint2 = int(dlen)
-			if (checkint1 != checkint2) {
+			if checkint1 != checkint2 {
 				fail("Decryption of private keys field in OPENSSH PRIVATE KEY file failed.")
 			}
 
@@ -871,11 +893,11 @@ func getRSAKeyFromOpenSSH(keyFile string, pemData []byte, block *pem.Block) (key
 	 * - blob of numkeys privkeys
 	 */
 	const (
-		cipherField = iota
-		kdfnameField = iota
+		cipherField     = iota
+		kdfnameField    = iota
 		kdfoptionsField = iota
-		numKeysField = iota
-		privkeyField = iota
+		numKeysField    = iota
+		privkeyField    = iota
 	)
 
 	var dlen uint32
@@ -968,12 +990,12 @@ func getRSAKeyFromSSHFile(keyFile string) (key *rsa.PrivateKey) {
 
 	pemData, err := ioutil.ReadFile(keyFile)
 	if err != nil {
-		fail("Unable to read '%s'.\n", keyFile)
+		fail("Unable to read '%s'.", keyFile)
 	}
 
 	block, _ := pem.Decode(pemData)
 	if block == nil {
-		fail("Unable to PEM-decode '%s'.\n", keyFile)
+		fail("Unable to PEM-decode '%s'.", keyFile)
 	}
 
 	switch block.Type {
@@ -982,7 +1004,7 @@ func getRSAKeyFromSSHFile(keyFile string) (key *rsa.PrivateKey) {
 	case "OPENSSH PRIVATE KEY":
 		return getRSAKeyFromOpenSSH(keyFile, pemData, block)
 	default:
-		fail("Unsupported key type %q.\n", block.Type)
+		fail("Unsupported key type %q.", block.Type)
 	}
 
 	return
@@ -1013,7 +1035,7 @@ func getURLContents(site, url string) (data []byte) {
 	if site == "GitHub" && len(gitHubApiToken) > 0 {
 		usr, err := user.Current()
 		if err != nil {
-			fail("%v\n", err)
+			fail("%v", err)
 		}
 		req.SetBasicAuth(usr.Username, gitHubApiToken)
 	}
@@ -1046,6 +1068,10 @@ func getopts() {
 		case "-V":
 			printVersion()
 			os.Exit(EXIT_SUCCESS)
+		case "-c":
+			eatit = true
+			argcheck("-c", args, i)
+			CMD = args[i+1]
 		case "-d":
 			ACTION = "decrypt"
 		case "-e":
@@ -1125,7 +1151,7 @@ func getpass(prompt string) (pass []byte) {
 func getpassFromEnv(varname string) (pass []byte) {
 	pass = []byte(os.Getenv(varname))
 	if len(pass) < 1 {
-		fail("Environment variable '%v' not set.\n", varname)
+		fail("Environment variable '%v' not set.", varname)
 	}
 	return
 }
@@ -1134,7 +1160,7 @@ func getpassFromFile(fname string) (pass []byte) {
 	verbose(5, "Getting password from file '%s'...", fname)
 	file, err := os.Open(fname)
 	if err != nil {
-		fail("Unable to open '%s': %v\n", fname, err)
+		fail("Unable to open '%s': %v", fname, err)
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -1150,7 +1176,7 @@ func getpassFromUser(prompt string) (pass []byte) {
 
 	dev_tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
-		fail("%v\n", err)
+		fail("%v", err)
 	}
 
 	fmt.Fprintf(dev_tty, prompt)
@@ -1168,7 +1194,7 @@ func getpassFromUser(prompt string) (pass []byte) {
 	input := bufio.NewReader(dev_tty)
 	pass, err = input.ReadBytes('\n')
 	if err != nil {
-		fail("Unable to read data from user: %v\n", err)
+		fail("Unable to read data from user: %v", err)
 	}
 
 	stty("echo")
@@ -1192,7 +1218,7 @@ func identifyCorrectSessionKeyData(privfp string, keys map[string]string) (skey 
 	}
 
 	if len(skey) < 1 {
-		fail("Data was not encrypted for the key '%v'.\n", privfp)
+		fail("Data was not encrypted for the key '%v'.", privfp)
 	}
 
 	return
@@ -1292,11 +1318,11 @@ func parseEncryptedInput() (message string, hmac string, keys map[string]string,
 	fd.Close()
 
 	if len(garbage) > 0 {
-		fail("Garbage found in input. Aborting\n")
+		fail("Garbage found in input. Aborting.")
 	}
 
 	if len(message) < 1 || len(keys) < 1 {
-		fail("No valid jass input found.\n")
+		fail("No valid jass input found.")
 	}
 
 	return
@@ -1307,8 +1333,8 @@ func parseKeysFromGitHubApiJson(data []byte) (keys []string) {
 	verbose(5, string(data))
 
 	type GitHubKeys struct {
-		Id      int
-		Key     string
+		Id  int
+		Key string
 	}
 
 	var gkeys []GitHubKeys
@@ -1375,13 +1401,13 @@ func runCommand(args []string, need_tty bool) string {
 	if need_tty {
 		dev_tty, err := os.Open("/dev/tty")
 		if err != nil {
-			fail("%v\n", err)
+			fail("%v", err)
 		}
 		cmd.Stdin = dev_tty
 	}
 	err := cmd.Run()
 	if err != nil {
-		fail("Unable to run '%v':\n%v\n%v\n", strings.Join(args, " "), stderr.String(), err)
+		fail("Unable to run '%v':\n%v\n%v", strings.Join(args, " "), stderr.String(), err)
 	}
 	return strings.TrimSpace(stdout.String())
 }
@@ -1389,11 +1415,11 @@ func runCommand(args []string, need_tty bool) string {
 func runCommandStdinPipe(cmd *exec.Cmd) (pipe io.WriteCloser) {
 	pipe, err := cmd.StdinPipe()
 	if err != nil {
-		fail("Unable to create pipe to command: %v\n", err)
+		fail("Unable to create pipe to command: %v", err)
 	}
 	err = cmd.Start()
 	if err != nil {
-		fail("Unable to run pipe to command: %v\n", err)
+		fail("Unable to run pipe to command: %v", err)
 	}
 
 	return
@@ -1450,7 +1476,7 @@ func stty(arg string) {
 
 	err := exec.Command("/bin/stty", flag, "/dev/tty", arg).Run()
 	if err != nil {
-		fail("Unable to run stty on /dev/tty: %v\n", err)
+		fail("Unable to run stty on /dev/tty: %v", err)
 	}
 }
 
@@ -1468,8 +1494,9 @@ func unpadBuffer(buf []byte) (unpadded []byte) {
 }
 
 func usage(out io.Writer) {
-	usage := `Usage: %v [-Vdehlv] [-f file] [-g group] [-k key] [-p passin] [-u user]
+	usage := `Usage: %v [-Vdehlv] [-c cmd] [-f file] [-g group] [-k key] [-p passin] [-u user]
 	-V        print version information and exit
+	-c cmd    use this command to fetch pubkeys
 	-d        decrypt
 	-e        encrypt (default)
 	-f file   Encrypt/decrypt file (default: stdin)
@@ -1541,25 +1568,29 @@ func varCheck() {
 func varCheckDecrypt() {
 	verbose(2, "Checking that all variables look ok for decrypting...")
 	if len(RECIPIENTS) != 0 || len(GROUPS) != 0 {
-		fail("You cannot specify any recipients when decrypting.\n")
+		fail("You cannot specify any recipients when decrypting.")
+	}
+
+	if len(CMD) > 0 {
+		fail("'-c' only makes sense when encrypting.")
 	}
 
 	if len(FILES) == 0 {
 		FILES = append(FILES, "/dev/stdin")
 	} else if len(FILES) > 1 {
-		fail("You can only decrypt one file at a time.\n")
+		fail("You can only decrypt one file at a time.")
 	}
 
 	if len(KEY_FILES) == 0 {
 		verbose(2, "No key specified, trying ~/.ssh/id_rsa...")
 		usr, err := user.Current()
 		if err != nil {
-			fail("%v\n", err)
+			fail("%v", err)
 		}
 		privkey := usr.HomeDir + "/.ssh/id_rsa"
 		KEY_FILES[privkey] = true
 	} else if len(KEY_FILES) > 1 {
-		fail("Please only specify a single key file when decrypting.\n")
+		fail("Please only specify a single key file when decrypting.")
 	}
 
 	var keys []string
@@ -1569,21 +1600,25 @@ func varCheckDecrypt() {
 
 	privkey, err := ioutil.ReadFile(keys[0])
 	if err != nil {
-		fail("%v\n", err)
+		fail("%v", err)
 	}
 
 	if strings.Contains(string(privkey), OPENSSH_RSA_KEY_SUBSTRING) {
-		fail("'%v' looks like a public key to me. Please specify a private key when decrypting.\n", keys[0])
+		fail("'%v' looks like a public key to me. Please specify a private key when decrypting.", keys[0])
 	}
 }
 
 func varCheckEncrypt() {
 	verbose(2, "Checking that all variables look ok for encrypting...")
 	if len(KEY_FILES) > 0 {
+		if len(CMD) > 0 {
+			fail("'-c' conflicts with '-k'.")
+		}
+
 		for file, _ := range KEY_FILES {
 			keys, err := ioutil.ReadFile(file)
 			if err != nil {
-				fail("Unable to read %v: %v\n", file, err)
+				fail("Unable to read %v: %v", file, err)
 			}
 			var key_data []string
 			for _, line := range strings.Split(string(keys), "\n") {
@@ -1601,12 +1636,22 @@ func varCheckEncrypt() {
 	} else if len(RECIPIENTS) == 0 && len(GROUPS) == 0 {
 		fail("You need to provide either a key file, a group, or a username.")
 	}
+
+	if len(CMD) > 0 {
+		if _, err := os.Stat(CMD); err != nil {
+			fail("Unable to stat '%s': %s", CMD, err)
+		}
+	}
 }
 
 func varCheckList() {
 	verbose(2, "Checking that all variables look ok for listing...")
 	if len(RECIPIENTS) != 0 || len(GROUPS) != 0 {
 		fail("You cannot specify any recipients when listing recipients.")
+	}
+
+	if len(CMD) > 0 {
+		fail("'-c' only makes sense when encrypting.")
 	}
 
 	if len(KEY_FILES) > 0 {

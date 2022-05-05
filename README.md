@@ -1,8 +1,8 @@
 Quick Summary
 =============
 jass(1) is a tool to let you encrypt/decrypt data using SSH keys.  Keys
-can be provided locally, fetched from LDAP, or retrieved from GitHub or
-another external keyserver.
+can be provided locally, fetched from LDAP, retrieved from GitHub, or
+via any external command.
 
 Encryption:
 
@@ -47,8 +47,8 @@ gpg: Good signature from "Jan Schaumann <jschauma@netbsd.org>"
 gpg:                 aka "Jan Schaumann (@jschauma) <jschauma@netmeister.org>"
 gpg:                 aka "Jan Schaumann <jschauma@netmeister.org>"
 $ hdiutil mount -quiet jass.dmg
-$ sudo installer -pkg /Volumes/Jass/jass-6.0.pkg -target /
-installer: Package name is jass-6.0
+$ sudo installer -pkg /Volumes/Jass/jass-7.1.pkg -target /
+installer: Package name is jass-7.1
 installer: Upgrading at base path /
 installer: The upgrade was successful.
 $ hdiutil unmount /Volumes/Jass
@@ -102,10 +102,8 @@ Finding keys
 ------------
 You can specify the public key(s) to encrypt data for on the command-line.
 Alternatively, jass(1) can try to fetch the key(s) for a given user or
-members of a Unix group from LDAP or a keyserver.
-
-You can specify the default method in the sources prior to building
-jass(1); support for a configuration file may be added in the future.
+members of a Unix group from LDAP, GitHub (public or internal), or an
+external command.
 
 GitHub Service
 --------------
@@ -126,6 +124,31 @@ you can set the GITHUB_API_TOKEN environment variable to enable
 Basic HTTP Auth.   This token will require `read:org`
 and `read:user` privileges.
 
+External Commands
+-----------------
+
+The perhaps easiest way to customize SSH public key retrieval for your
+environment is to use a separate external command or shell script.  For
+example, if you have an internal server where you can fetch SSH pubkeys
+via a client-cert authenticated HTTP GET, you might do the following:
+
+```
+$ cat > ~/bin/fetchkeys <<EOF
+#! /bin/sh
+curl --cert ~/.cert/cert.pem --key ~/.cert/key.pem \
+        https://internal.example.com/pubkeys/$1
+EOF
+$ chmod +rx ~/bin/fetchkeys
+$ export PATH=~/bin:$PATH
+$ jass -c fetchkeys -u recipient <data
+```
+
+The command passed to `jass(1)` via `-c` will be invoked with the
+recipient name as the single argument.
+
+The advantage of this is that with an external command, there is no limit
+on the complexity of what you might need to do to find the keys without
+having to code those details into `jass(1)`.
 
 How to use jass(1)
 ==================
@@ -139,8 +162,8 @@ via email:
             mail -s "Please do the needful!" jschauma
 
 If you do not have a user named 'jschauma' on your local systems, nor in
-LDAP (if you set that up), then you can ask jass(1) to look that user's
-key on GitHub by specifying the '-G' flag:
+LDAP (if you set that up), then by default jass(1) will look for that
+user's keys on GitHub.
 
 For example, to encrypt a message for Linus Torvalds
 using his GitHub key, you might run:
@@ -165,12 +188,6 @@ Supported Platforms
 jass(1) is written in Go, so it should run pretty much anywhere that you
 can build a binary for.  (An older version of jass(1) written in shell is
 also available in the 'src' directory.)
-
-jass(1) was tested on the following systems:
-
-- RedHat Enterprise Linux 6.8
-- Mac OS X 10.15.2
-- NetBSD 8.0
 
 FAQ
 ===
