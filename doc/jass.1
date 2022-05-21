@@ -2,7 +2,7 @@
 .\"	Originally written by Jan Schaumann <jschauma@twitter.com> in
 .\"	April 2013.
 .\"
-.Dd May 05, 2022
+.Dd May 21, 2022
 .Dt JASS 1
 .Os
 .Sh NAME
@@ -174,11 +174,6 @@ following methods.
 Please note that doing so carries certain risks, and you should carefully
 evaluate what may be the best option for you.
 .Bl -tag -width pass_password_
-.It \fBpass:password\fR
-The actual password is \fBpassword\fR.
-Since the password is visible to utilities such as
-.Xr ps 1
-this form should only be used where security is not important.
 .It \fBenv:var\fR
 Obtain the password from the environment variable \fBvar\fR.
 Since the environment of other processes may be visible via e.g.
@@ -190,6 +185,28 @@ The first line of \fBpathname\fR is the password.
 refer to a device or named pipe.
 Note that standard Unix file access controls should be used to protect
 this file.
+.It \fBkeychain:name\fR
+.Nm
+will use the
+.Xr security 1
+utility to retrieve the password from the macOS keychain.
+.It \fBlpass:name\fR
+.Nm
+will use the LastPass command-line client
+.Xr lpass 1
+to retrieve the named password.
+You should previously have run 'lpass login' for this
+to work.
+.It \fBop:name\fR
+.Nm
+will use the 1Password command-line client
+.Xr op 1
+to retrieve the named password.
+.It \fBpass:password\fR
+The actual password is \fBpassword\fR.
+Since the password is visible to utilities such as
+.Xr ps 1
+this form should only be used where security is not important.
 .El
 .Sh GITHUB SERVICE
 .Nm
@@ -315,8 +332,10 @@ $ jass -u jdoe <data
 .Ed
 .Sh SEE ALSO
 .Xr enc 1 ,
+.Xr lpass 1 ,
 .Xr openssl 1 ,
 .Xr rsautl 1 ,
+.Xr security 1 ,
 .Xr ssh-keygen 1
 .Sh BUGS
 .Nm

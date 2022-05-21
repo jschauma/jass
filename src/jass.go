@@ -80,7 +80,7 @@ const OPENSSH_RSA_KEY_SUBSTRING = "ssh-rsa AAAAB3NzaC1"
 const OPENSSH_DSS_KEY_SUBSTRING = "ssh-dss AAAAB3NzaC1"
 
 const PROGNAME = "jass"
-const VERSION = "7.2"
+const VERSION = "7.3"
 
 var ACTION = "encrypt"
 
@@ -902,14 +902,24 @@ func getpass(prompt string) (pass []byte) {
 	}
 
 	switch source {
-	case "tty":
-		return getpassFromUser(prompt)
-	case "pass":
-		return []byte(passin[1])
-	case "file":
-		return getpassFromFile(passin[1])
 	case "env":
 		return getpassFromEnv(passin[1])
+	case "file":
+		return getpassFromFile(passin[1])
+	case "keychain":
+		return getpassFromKeychain(passin[1])
+	case "lastpass":
+		fallthrough
+	case "lpass":
+		return getpassFromLastpass(passin[1])
+	case "onepass":
+		fallthrough
+	case "op":
+		return getpassFromOnepass(passin[1])
+	case "pass":
+		return []byte(passin[1])
+	case "tty":
+		return getpassFromUser(prompt)
 	default:
 		fail(error_message)
 	}
@@ -938,6 +948,27 @@ func getpassFromFile(fname string) (pass []byte) {
 	}
 
 	return
+}
+
+func getpassFromKeychain(entry string) (pass []byte) {
+	verbose(5, "Getting password from keychain entry '%s'...", entry)
+	cmd := []string{"security", "find-generic-password", "-s", entry, "-w"}
+	out := runCommand(cmd, false)
+	return []byte(out)
+}
+
+func getpassFromLastpass(entry string) (pass []byte) {
+	verbose(5, "Getting password from LastPass 'lpass' entry '%s'...", entry)
+	cmd := []string{"lpass", "show", entry, "--password"}
+	out := runCommand(cmd, false)
+	return []byte(out)
+}
+
+func getpassFromOnepass(entry string) (pass []byte) {
+	verbose(5, "Getting password from 1Password 'op' entry '%s'...", entry)
+	cmd := []string{"op", "item", "get", entry, "--fields", "password"}
+	out := runCommand(cmd, false)
+	return []byte(out)
 }
 
 func getpassFromUser(prompt string) (pass []byte) {
@@ -1273,7 +1304,7 @@ func usage(out io.Writer) {
 	-h        print this help and exit
 	-k key    encrypt using this public key file
 	-l        list recipients
-	-p passin pass:passphrase, env:envvar, file:filename
+	-p passin env:envvar, file:filename, keychain:name, pass:passphrase
 	-u user   encrypt for this user
 	-v        be verbose
 `

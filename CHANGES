@@ -1,3 +1,8 @@
+* Sat May 21 2022 - jschauma@netmeister.org
+- 7.3
+-  add support for password managers ('op', 'lpass',
+   macOS keychain)
+
 * Fri May 20 2022 - jschauma@netmeister.org
 - 7.2
 -  finally allow encrypted RSA keys
