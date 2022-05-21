@@ -39,22 +39,46 @@ spec: rpm/${NAME}.spec
 rpm/${NAME}.spec: rpm/${NAME}.spec.in
 	cat $< CHANGES | sed -e "s/VERSION/${VERSION}/" >$@
 
-binaries: binaries/${NAME}.darwin binaries/${NAME}.freebsd binaries/${NAME}.linux binaries/${NAME}.netbsd binaries/${NAME}.openbsd
+binaries: binaries/${NAME}.darwin.amd64 \
+	binaries/${NAME}.darwin.arm64	\
+	binaries/${NAME}.freebsd.amd64 	\
+	binaries/${NAME}.freebsd.arm64 	\
+	binaries/${NAME}.linux.amd64	\
+	binaries/${NAME}.linux.arm64	\
+	binaries/${NAME}.netbsd.amd64	\
+	binaries/${NAME}.netbsd.arm64	\
+	binaries/${NAME}.openbsd.amd64	\
+	binaries/${NAME}.openbsd.arm64
 
-binaries/${NAME}.darwin: src/${NAME}.go
-	env GOOS=darwin go build -o $@ $<
+binaries/${NAME}.darwin.amd64: src/${NAME}.go
+	env GOARCH=amd64 GOOS=darwin go build -o $@ $<
 
-binaries/${NAME}.freebsd: src/${NAME}.go
-	env GOOS=freebsd go build -o $@ $<
+binaries/${NAME}.darwin.arm64: src/${NAME}.go
+	env GOARCH=arm64 GOOS=darwin go build -o $@ $<
 
-binaries/${NAME}.linux: src/${NAME}.go
-	env GOOS=linux go build -o $@ $<
+binaries/${NAME}.freebsd.amd64: src/${NAME}.go
+	env GOARCH=amd64 GOOS=freebsd go build -o $@ $<
 
-binaries/${NAME}.netbsd: src/${NAME}.go
-	env GOOS=netbsd go build -o $@ $<
+binaries/${NAME}.freebsd.arm64: src/${NAME}.go
+	env GOARCH=arm64 GOOS=freebsd go build -o $@ $<
 
-binaries/${NAME}.openbsd : src/${NAME}.go
-	env GOOS=openbsd go build -o $@ $<
+binaries/${NAME}.linux.amd64: src/${NAME}.go
+	env GOARCH=amd64 GOOS=linux go build -o $@ $<
+
+binaries/${NAME}.linux.arm64: src/${NAME}.go
+	env GOARCH=arm64 GOOS=linux go build -o $@ $<
+
+binaries/${NAME}.netbsd.amd64: src/${NAME}.go
+	env GOARCH=amd64 GOOS=netbsd go build -o $@ $<
+
+binaries/${NAME}.netbsd.arm64: src/${NAME}.go
+	env GOARCH=arm64 GOOS=netbsd go build -o $@ $<
+
+binaries/${NAME}.openbsd.amd64: src/${NAME}.go
+	env GOARCH=amd64 GOOS=openbsd go build -o $@ $<
+
+binaries/${NAME}.openbsd.arm64: src/${NAME}.go
+	env GOARCH=arm64 GOOS=openbsd go build -o $@ $<
 
 build: src/${NAME}
 

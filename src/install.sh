@@ -17,7 +17,7 @@ _UNAME="$(uname | tr '[A-Z]' '[a-z]')"
 _UNAME_M="$(uname -m)"
 
 _SUPPORTED_OS="darwin freebsd linux netbsd openbsd"
-_SUPPORTED_ARCH="amd64 x86_64"
+_SUPPORTED_ARCH="amd64 arm64 x86_64"
 
 _TDIR="$(mktemp -d "${TMPDIR:-/tmp}/${NAME}.XXXX")"
 
@@ -45,8 +45,12 @@ checkOS() {
 		fi
 	done
 
+	if [ x"${_UNAME_M}" = x"x86_64" ]; then
+		_UNAME_M="amd64"
+	fi
+
 	if [ ${osok} -ne 1 ] || [ ${archok} -ne 1 ]; then
-		echo "Unsupported OS (${_UNAME}) or architecture (${UNAME_M})." >&2
+		echo "Unsupported OS (${_UNAME}) or architecture (${_UNAME_M})." >&2
 		echo "Please build ${NAME} yourself." >&2
 		exit 1
 		# NOTREACHED
@@ -71,8 +75,8 @@ cleanup() {
 
 fetchFiles() {
 	echo "=> Fetching jass binary for ${_UNAME}/${_UNAME_M}..."
-	${_FETCH} "${_TDIR}/${NAME}.${_UNAME}" "${_GITHUB_URL}/binaries/${NAME}.${_UNAME}" || {
-		echo "Unable to fetch '${_GITHUB_URL}/binaries/${NAME}.${_UNAME}'." >&2
+	${_FETCH} "${_TDIR}/${NAME}.${_UNAME}" "${_GITHUB_URL}/binaries/${NAME}.${_UNAME}.${_UNAME_M}" || {
+		echo "Unable to fetch '${_GITHUB_URL}/binaries/${NAME}.${_UNAME}.${_UNAME_M}'." >&2
 		exit 1
 		# NOTREACHED
 	}
