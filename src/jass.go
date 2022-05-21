@@ -1304,7 +1304,7 @@ func usage(out io.Writer) {
 	-h        print this help and exit
 	-k key    encrypt using this public key file
 	-l        list recipients
-	-p passin env:envvar, file:filename, keychain:name, pass:passphrase
+	-p passin env:envvar, file:filename, keychain:name, lpass:name, op:name, pass:passphrase
 	-u user   encrypt for this user
 	-v        be verbose
 `
