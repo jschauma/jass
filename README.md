@@ -33,8 +33,8 @@ write access to `${PREFIX}`, add sudo(8) before `sh`.
 
 
 If you're on Mac OS X, you can install [this
-package](https://github.com/jschauma/jass/raw/master/packages/dmgs/jass.dmg);
-that package is signed with my PGP key
+package](https://github.com/jschauma/jass/raw/master/packages/dmgs/jass.dmg)
+(M1 / arm64); that package is signed with my PGP key
 [6F6BD3D7](https://www.netmeister.org/public_key.gpg.asc)
 with the signature
 [here](https://github.com/jschauma/jass/raw/master/packages/dmgs/jass.dmg.asc).
