@@ -109,24 +109,22 @@ GitHub Service
 --------------
 By default, jass(1) will look for keys for the recipients on GitHub.  It
 does so by retrieving the URL `https://api.github.com/users/<user>/keys`.
-If you prefer this not to happen, set the GITHUB_URL environment variable
+If you prefer this not to happen, set the `GITHUB_URL` environment variable
 to the empty string.
 
-Alternatively, you can set GITHUB_URL to e.g., an internal GitHub service
-endpoint such as `https://git.your.domain.com/api/v3`,
-and jass(1) will look for keys there.  This also will
-work for specifying a GitHub "team" instead of a
-group, either in the format "org/team" or as a numeric
+Alternatively, you can set `GITHUB_URL` to e.g., an internal GitHub
+service endpoint such as `https://git.your.domain.com/api/v3`, and jass(1)
+will look for keys there.  This also will work for specifying a GitHub
+"team" instead of a group, either in the format "org/team" or as a numeric
 team-id.
 
 If you are using an internal GitHub service and require authentication,
-you can set the GITHUB_API_TOKEN environment variable to enable
-Basic HTTP Auth.   This token will require `read:org`
-and `read:user` privileges.
+you can set the `GITHUB_API_TOKEN` environment variable to enable Basic
+HTTP Auth.   This token will require `read:org` and `read:user`
+privileges.
 
 External Commands
 -----------------
-
 The perhaps easiest way to customize SSH public key retrieval for your
 environment is to use a separate external command or shell script.  For
 example, if you have an internal server where you can fetch SSH pubkeys
@@ -202,8 +200,16 @@ Why does this ask me for my passphrase when decrypting? Can't it get it from my 
 ------------------------------------------------------------------------------------------
 Unfortunately the key available in any possible ssh agent cannot be used
 by jass(1), since we are not actually using ssh(1) at all: we just happen to
-use an ssh key.  If the key is encrypted, then we need to prompt the user
+use an SSH key.  If the key is encrypted, then we need to prompt the user
 for the passphrase.
+
+Why can't I use ECDSA or DSS keys?
+----------------------------------
+DSA (or DSS) and ECDSA are _digital signature algorithms_, not
+_encryption_ algorithms.  jass(1) uses AES for the actual data encryption,
+but it then encrypts a session key using RSA, and thus only supports (at
+this time, anyway) RSA SSH keys.
+
 
 Who wrote this tool?
 --------------------

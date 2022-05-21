@@ -1,3 +1,7 @@
+* Fri May 20 2022 - jschauma@netmeister.org
+- 7.2
+-  finally allow encrypted RSA keys
+
 * Thu May 05 2022 - jschauma@netmeister.org
 - 7.1
 -  add support for external commands to fetch ssh
