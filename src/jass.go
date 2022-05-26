@@ -24,13 +24,10 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/big"
 	"net/http"
 	"os"
 	"os/exec"
@@ -180,10 +177,13 @@ func convertPubkeys() {
 		verbose(2, "Converting pubkeys for '%v' to PKCS8 format...", recipient)
 		for _, key := range keys {
 			if len(key) > 1 {
-				pubkey := sshToPubkey(key)
-				if pubkey.Key.E > 0 {
-					PUBKEYS[recipient] = append(PUBKEYS[recipient], pubkey)
+				pk, _, _, _, err := ssh.ParseAuthorizedKey([]byte(key))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Unable to parse key for %s: %s\n", recipient, err)
+					continue
 				}
+
+				PUBKEYS[recipient] = append(PUBKEYS[recipient], newKeyFromSSHPubkey(pk))
 			}
 		}
 	}
@@ -213,7 +213,11 @@ func decrypt() {
 		keys = append(keys, k)
 	}
 	privkey := getRSAKeyFromSSHFile(keys[0])
-	privfp := getFingerPrint(privkey.PublicKey)
+	sshKey, err := ssh.NewPublicKey(&privkey.PublicKey)
+	if err != nil {
+		fail("unable to convert key to SSH format: %s", err)
+	}
+	privfp := ssh.FingerprintLegacyMD5(sshKey)
 
 	message, hmac, all_skeys, _ := parseEncryptedInput()
 
@@ -491,125 +495,6 @@ func generateHMAC(skey string, data []byte) {
 	h := hmac.New(sha256.New, []byte(skey))
 	h.Write(data)
 	uuencode("hmac", h.Sum(nil))
-}
-
-func getFingerPrint(pubkey rsa.PublicKey) (fp string) {
-	verbose(4, "Generating fingerprint for raw public key...")
-
-	/* The fingerprint of a public key is just the md5 of the raw
-	 * data.  That is, we combine:
-	 *
-	 * [0 0 0 7]  -- length of next chunk
-	 * "ssh-rsa"
-	 * 4 bytes    -- length of next chunk
-	 * the public key exponent
-	 * 4 bytes    -- length of next chunk
-	 * 0          -- first byte of modulus, since it's signed
-	 * the public key modulus
-	 */
-	var b bytes.Buffer
-	b.Write([]byte{0, 0, 0, 7})
-	b.Write([]byte("ssh-rsa"))
-
-	/* exponent */
-	x := new(big.Int)
-	x.SetString(fmt.Sprintf("%d", pubkey.E), 0)
-	b.Write([]byte{0, 0, 0, byte(len(x.Bytes()))})
-	b.Write(x.Bytes())
-
-	/* modulus */
-	tmpbuf := make([]byte, 0)
-	mlen := len(pubkey.N.Bytes()) + 1
-	x.SetString(fmt.Sprintf("%d", mlen), 0)
-	xlen := len(x.Bytes())
-	for i := 0; i < xlen; i++ {
-		tmpbuf = append(tmpbuf, 0)
-	}
-	tmpbuf = append(tmpbuf, x.Bytes()...)
-
-	/* append one zero byte to indicate signedness */
-	tmpbuf = append(tmpbuf, 0)
-
-	b.Write(tmpbuf)
-	b.Write(pubkey.N.Bytes())
-
-	fingerprint := md5.New()
-	fingerprint.Write(b.Bytes())
-	for i, b := range fmt.Sprintf("%x", fingerprint.Sum(nil)) {
-		if i > 0 && i%2 == 0 {
-			fp += ":"
-		}
-		fp += string(b)
-	}
-	return
-}
-
-func getPubkeyFromBlob(blob []byte) (pubkey SSHKey) {
-
-	/* Based on:
-	 * http://cpansearch.perl.org/src/MALLEN/Convert-SSH2-0.01/lib/Convert/SSH2.pm
-	 * https://gist.github.com/mahmoudimus/1654254,
-	 * http://golang.org/src/pkg/crypto/x509/x509.go
-	 *
-	 * See also: http://www.netmeister.org/blog/ssh2pkcs8.html
-	 *
-	 * The key format is base64 encoded tuples of:
-	 * - four bytes representing the length of the next data field
-	 * - the data field
-	 *
-	 * In practice, for an RSA key, we get:
-	 * - four bytes [0 0 0 7]
-	 * - the string "ssh-rsa" (7 bytes)
-	 * - four bytes
-	 * - the exponent
-	 * - four bytes
-	 * - the modulus
-	 */
-
-	const (
-		keyTypeField  = iota
-		exponentField = iota
-		modulusField  = iota
-	)
-
-	var k rsa.PublicKey
-	n := 0
-	for len(blob) > 4 {
-		dlen := binary.BigEndian.Uint32(blob[:4])
-
-		chunklen := int(dlen) + 4
-		if len(blob) < chunklen {
-			fmt.Fprintf(os.Stderr, "Invalid data while trying to extract public key.\n")
-			fmt.Fprintf(os.Stderr, "Maybe a corrupted key?\n")
-			return
-		}
-
-		data := blob[4:chunklen]
-		blob = blob[chunklen:]
-
-		switch n {
-		case keyTypeField:
-			if ktype := fmt.Sprintf("%s", data); ktype != "ssh-rsa" {
-				fmt.Fprintf(os.Stderr, "Unsupported key type (%v).\n", ktype)
-				return
-			}
-		case exponentField:
-			i := new(big.Int)
-			i.SetString(fmt.Sprintf("0x%v", hex.EncodeToString(data)), 0)
-			k.E = int(i.Int64())
-		case modulusField:
-			i := new(big.Int)
-			/* The value in this field is signed, so the first
-			 * byte should be 0, so we strip it. */
-			i.SetString(fmt.Sprintf("0x%v", hex.EncodeToString(data[1:])), 0)
-			k.N = i
-		}
-		n++
-	}
-
-	pubkey.Key = k
-	pubkey.Fingerprint = getFingerPrint(k)
-	return
 }
 
 /* Pubkeys are retrieved by first trying local files, then looking in
@@ -1029,6 +914,16 @@ func list() {
 	parseEncryptedInput()
 }
 
+func newKeyFromSSHPubkey(pk ssh.PublicKey) (newKey SSHKey) {
+	verbose(3, "Converting ssh.PublicKey...")
+	fp := ssh.FingerprintLegacyMD5(pk)
+	cpk := pk.(ssh.CryptoPublicKey)
+	cpub := cpk.CryptoPublicKey()
+	rpub := cpub.(*rsa.PublicKey)
+	newKey = SSHKey{ *rpub, fp }
+	return
+}
+
 func padBuffer(buf []byte) (padded []byte) {
 	/* We will uses PKCS7 padding: The value of each added byte is the
 	 * number of bytes that are added, i.e. N bytes, each of value N
@@ -1212,61 +1107,6 @@ func runCommand(args []string, need_tty bool) string {
 	return strings.TrimSpace(stdout.String())
 }
 
-func runCommandStdinPipe(cmd *exec.Cmd) (pipe io.WriteCloser) {
-	pipe, err := cmd.StdinPipe()
-	if err != nil {
-		fail("Unable to create pipe to command: %v", err)
-	}
-	err = cmd.Start()
-	if err != nil {
-		fail("Unable to run pipe to command: %v", err)
-	}
-
-	return
-}
-
-func sshToPubkey(key string) (pubkey SSHKey) {
-	verbose(3, "Converting SSH input into a public key...")
-
-	/* Many users have DSS keys stored in addition to RSA keys.  When
-	 * multiple keys are used, having an error for what is a valid SSH
-	 * key, just not of type RSA, is a bit annoying, so we silence
-	 * this error by default. */
-	i := strings.Index(key, OPENSSH_DSS_KEY_SUBSTRING)
-	if i >= 0 {
-		if VERBOSITY > 0 {
-			fmt.Fprintf(os.Stderr, "Skipping what looks like a DSS key to me.\n")
-		}
-		if VERBOSITY > 1 {
-			fmt.Fprintf(os.Stderr, key)
-		}
-		return
-	}
-
-	/* An RSA SSH key can have leading key options (including quoted
-	 * whitespace) and trailing comments (including whitespace).  We
-	 * take a short cut here and assume that if it contains the known
-	 * RSA pattern, then that field must be the actual key.  This
-	 * would be a false assumption if one of the comments or options
-	 * contained that same pattern, but anybody who creates such a key
-	 * can go screw themselves. */
-	i = strings.Index(key, OPENSSH_RSA_KEY_SUBSTRING)
-	if i < 0 {
-		fmt.Fprintf(os.Stderr, "Not an ssh RSA public key: '%v'\n", key)
-		return
-	}
-
-	fields := strings.Split(key[i:], " ")
-	decoded := decodeBase64(fields[1])
-	if len(decoded) < 1 {
-		fmt.Fprintf(os.Stderr, "Unable to decode key.\n")
-		return
-	}
-
-	pubkey = getPubkeyFromBlob(decoded)
-	return
-}
-
 func stty(arg string) {
 
 	flag := "-f"
@@ -1428,10 +1268,13 @@ func varCheckEncrypt() {
 				if strings.Contains(line, OPENSSH_RSA_KEY_SUBSTRING) {
 					key_data = append(key_data, line)
 				} else {
-					verbose(3, "Not a public RSA ssh key, ignoring: '%v'\n", line)
+					fmt.Fprintf(os.Stderr, "Not a public RSA ssh key, ignoring: '%v'\n", line)
 				}
 			}
-			RECIPIENTS[file] = key_data
+
+			if len(key_data) > 0 {
+				RECIPIENTS[file] = key_data
+			}
 		}
 	} else if len(RECIPIENTS) == 0 && len(GROUPS) == 0 {
 		fail("You need to provide either a key file, a group, or a username.")
