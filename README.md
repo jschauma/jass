@@ -180,12 +180,61 @@ system:
 
     jass -d -k ~/.ssh/privkey <secret
 
+Providing Passphrases
+---------------------
+`jass(1)` allows you to specify the passphrase for your private key as
+well as for querying LDAP via several methods.  It is strongly recommended
+to use one of the options involving a password manager.
+
+For example, on macOS you might want to add your LDAP password and SSH key
+passphrase to the keychain as [described
+here](https://www.netmeister.org/blog/keychain-passwords.html):
+
+```
+$ security add-generic-password -a ${USER} -s ldap -w
+password data for new item:
+retype password for new item:
+$ security add-generic-password -a ${USER} -s sshkey-internal -w
+password data for new item:
+retype password for new item:
+$
+```
+
+With those items in the keychain, you'd then use `jass(1)` as follows:
+
+```
+# To encrypt:
+$ echo "secret message" | jass -p keychain:ldap -u jschauma
+
+# To decrypt:
+$ <secret-input-file jass -d -p keychain:ssh-key -k ~/.ssh/mykey
+```
+
+You might then use some aliases to save yourself some typing:
+
+```
+$ cat >>~/.bashrc <<EOF
+alias jass-e='jass -p keychain:ldap'
+alias jass-d='jass -d -p keychain:ssh-key -k ~/.ssh/mykey
+EOF
+$ . ~/.bashrc
+$ echo "secret message" | jass-e -u ${USER} | jass-d
+secret message
+$
+```
+
+`jass(1)` also supports the
+[1Password](https://1password.com/downloads/command-line/) and
+[LastPass](https://github.com/lastpass/lastpass-cli) key managers by way
+of their respective command-line interfaces.
+
 
 Supported Platforms
 -------------------
-jass(1) is written in Go, so it should run pretty much anywhere that you
-can build a binary for.  (An older version of jass(1) written in shell is
-also available in the 'src' directory.)
+`jass(1)` is written in Go, so it should run pretty much anywhere that you
+can build a binary for.  (An older version of `jass(1)` written in shell is
+also available in the 'src' directory, but that is largely for historical
+purposes.)
 
 FAQ
 ===
@@ -199,24 +248,24 @@ on the other hand, are used nearly everywhere.
 Why does this ask me for my passphrase when decrypting? Can't it get it from my ssh agent?
 ------------------------------------------------------------------------------------------
 Unfortunately the key available in any possible ssh agent cannot be used
-by jass(1), since we are not actually using ssh(1) at all: we just happen to
+by `jass(1)`, since we are not actually using `ssh(1)` at all: we just happen to
 use an SSH key.  If the key is encrypted, then we need to prompt the user
 for the passphrase.
 
 Why can't I use ECDSA or DSS keys?
 ----------------------------------
 DSA (or DSS) and ECDSA are _digital signature algorithms_, not
-_encryption_ algorithms.  jass(1) uses AES for the actual data encryption,
+_encryption_ algorithms.  `jass(1)` uses AES for the actual data encryption,
 but it then encrypts a session key using RSA, and thus only supports (at
 this time, anyway) RSA SSH keys.
 
 
 Who wrote this tool?
 --------------------
-jass(1) was originally written by Jan Schaumann (jschauma@netmeister.org) in
+`jass(1)` was originally written by Jan Schaumann (jschauma@netmeister.org) in
 April 2013.
 
-You can read more about it here:
+You can read more about its historical evolution here:
 * http://www.netmeister.org/blog/sharing-secrets-using-ssh-keys.html
 * http://www.netmeister.org/blog/jass.html
 * https://www.netmeister.org/blog/ssh2pkcs8.html
